@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 const STORAGE_KEY = 'signup_list_automation.groups_v2'
 
 // Configure admin names here (exact first + last names). Case-insensitive.
-const ADMIN_NAMES = ['Alice Smith', 'Bob Jones']
+const ADMIN_NAMES = ['Admin Ross Goodwell', 'Admin Dick Jones']
 
 function normalizeName(n) {
   return n.replace(/\s+/g, ' ').trim()
@@ -37,7 +37,7 @@ function isLockedByWeek() {
   const lockStart = new Date(sunday)
   lockStart.setHours(15, 0, 0, 0)
   const lockEnd = new Date(lockStart)
-  lockEnd.setDate(lockStart.getDate() + 7) // Next Sunday 15:00
+  lockEnd.setDate(lockStart.getDate() + 2) // Next Sunday 15:00
 
   return now >= lockStart && now < lockEnd
 }
