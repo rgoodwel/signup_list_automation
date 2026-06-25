@@ -1,6 +1,14 @@
 # Signup List Automation
 
-This repository contains a minimal React application (Vite) that you can build and deploy as a static website to AWS (S3, CloudFront, or Amplify).
+This repository contains a minimal React application (Vite) for a golf league weekly signup. It stores groups of players (names only) in the browser localStorage and includes logic to automatically form groups up to 4 players.
+
+Behavior summary
+
+- Each signup is a player's name only (no email).
+- A user can sign up as an individual or include 1-3 partner names (comma-separated).
+- If you sign up as an individual, the app places you in the first existing group with available space (<4). If none, a new group is created.
+- If you sign up with other players and some of those players are already signed up in groups, the app will merge those groups together automatically as long as the resulting group does not exceed 4 players. If merging would exceed 4 players, the signup is rejected with a warning.
+- Groups are persisted in localStorage under the key `signup_list_automation.groups_v1`.
 
 Quick start
 
@@ -16,18 +24,4 @@ Quick start
 
    npm run build
 
-The production build will be generated in the dist/ directory.
-
-Deploy to AWS S3 (static website)
-
-- Create an S3 bucket (e.g., my-site.example.com).
-- In the S3 console, enable static website hosting or upload the contents of the dist/ folder to the bucket.
-- If you want HTTPS and a CDN, create a CloudFront distribution that points to the S3 bucket (or use AWS Amplify which handles build & deploy).
-
-Deploy with AWS Amplify (recommended for CI/CD)
-
-- Connect the repository to AWS Amplify from the AWS console and Amplify will build using `npm run build` and host the resulting site.
-
-Notes
-
-- This app stores signups in the browser's localStorage. For real automation you can wire the form to an API endpoint or AWS Lambda + DynamoDB / SES.
+After build, upload the contents of `dist/` to an S3 bucket or use Amplify for CI/CD.
