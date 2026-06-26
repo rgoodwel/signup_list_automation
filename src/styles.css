@@ -114,6 +114,12 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .modal-dismiss{padding:9px 22px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:opacity .15s}
 .modal-dismiss:hover{opacity:.85}
 
+/* ── B-group ── */
+.b-group-heading{margin:20px 0 10px;font-size:16px;font-weight:700;color:var(--accent)}
+.b-group-notice{margin:10px 0 0;font-size:13px;color:var(--muted);font-style:italic}
+.hole-card--b-group{background:#f7f4fc;border-color:rgba(100,60,160,0.22)}
+.hole-card--b-group h3{color:#4a3080}
+
 /* ── Legacy ── */
 .empty{color:var(--muted);margin-top:4px}
 footer{margin-top:24px;color:var(--muted)}

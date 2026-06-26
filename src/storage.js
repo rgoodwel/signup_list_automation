@@ -11,6 +11,7 @@ const KEYS = {
 
 export const HOLE_COUNT = 9
 export const HOLE_CAPACITY = 4
+export const B_GROUP_THRESHOLD = 24
 
 /** Normalize a name for comparison: lowercase, collapsed whitespace. */
 function normalizeName(n) {
@@ -49,12 +50,23 @@ function createId() {
 
 function createEmptyHoles() {
   const holes = {}
-  for (let i = 1; i <= HOLE_COUNT; i++) holes[String(i)] = []
+  for (let i = 1; i <= HOLE_COUNT; i++) {
+    holes[String(i)] = []
+    holes[`${i}B`] = []
+  }
   return holes
 }
 
 function normalizeHole(value) {
-  const n = parseInt(value, 10)
+  const s = String(value || '').trim().toUpperCase()
+  // B-group: e.g. "1B", "9B"
+  if (s.endsWith('B')) {
+    const n = parseInt(s.slice(0, -1), 10)
+    if (Number.isNaN(n) || n < 1 || n > HOLE_COUNT) return null
+    return `${n}B`
+  }
+  // A-group (or legacy plain number)
+  const n = parseInt(s, 10)
   if (Number.isNaN(n)) return null
   if (n < 1 || n > HOLE_COUNT) return null
   return String(n)
@@ -69,6 +81,14 @@ function ensureWeekHasHoles(week) {
   }
   for (let i = 1; i <= HOLE_COUNT; i++) {
     const key = String(i)
+    if (!Array.isArray(week.holes[key])) {
+      week.holes[key] = []
+      changed = true
+    }
+  }
+  // Ensure B-group keys exist (added in a later version)
+  for (let i = 1; i <= HOLE_COUNT; i++) {
+    const key = `${i}B`
     if (!Array.isArray(week.holes[key])) {
       week.holes[key] = []
       changed = true
@@ -109,6 +129,20 @@ function ensureWeekHasHoles(week) {
   week.holesInitialized = true
   changed = true
   return changed
+}
+
+/**
+ * Returns true when Group B holes should be unlocked for a given week.
+ * B groups open once the total number of players across all Group A holes
+ * reaches B_GROUP_THRESHOLD (24).
+ */
+export function areBGroupsUnlocked(week) {
+  if (!week || !week.holes) return false
+  let total = 0
+  for (let i = 1; i <= HOLE_COUNT; i++) {
+    total += (week.holes[String(i)] || []).length
+  }
+  return total >= B_GROUP_THRESHOLD
 }
 
 // ── ISO week key helpers ────────────────────────────────────────────────────
@@ -426,6 +460,14 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   if (already) return { ok: false, reason: "You're already signed up for this week!" }
   const holeKey = normalizeHole(hole)
   if (!holeKey) return { ok: false, reason: 'Please choose a valid hole.' }
+
+  // B-group holes are only available once the threshold is reached
+  if (holeKey.endsWith('B') && !areBGroupsUnlocked(weeks[weekKey])) {
+    return {
+      ok: false,
+      reason: `Group B holes are not yet available. They unlock once ${B_GROUP_THRESHOLD} players have signed up.`,
+    }
+  }
 
   const rawExtras = additionalPlayers
     .map(p => p.trim())

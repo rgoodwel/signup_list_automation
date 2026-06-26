@@ -12,6 +12,8 @@ import {
   isFullName,
   HOLE_COUNT,
   HOLE_CAPACITY,
+  B_GROUP_THRESHOLD,
+  areBGroupsUnlocked,
 } from './storage'
 
 function formatReopenTime(date) {
@@ -74,7 +76,11 @@ export default function SignupForm({ onSignedUp }) {
   const isClosed   = !windowOpen || !weekKey || (week && week.closedAt)
   const reopenDate = isClosed ? getNextWindowOpenDate() : null
   const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
+  const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
   const holes = week?.holes || Object.fromEntries(holeKeys.map(k => [k, []]))
+  const bUnlocked = week ? areBGroupsUnlocked(week) : false
+  const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
+  const bUnlockRemaining = Math.max(0, B_GROUP_THRESHOLD - totalAPlayers)
 
   function showError(title, message, hint) {
     setPopup({ title, message, hint: hint || null })
@@ -135,6 +141,9 @@ export default function SignupForm({ onSignedUp }) {
       if (reason.includes("already signed up")) {
         title = 'Already Signed Up'
         hint = 'You can only sign up once per week. If you need to change your hole or group, contact an administrator.'
+      } else if (reason.includes("Group B holes are not yet available")) {
+        title = 'Group B Not Available'
+        hint = `Group B holes unlock once ${B_GROUP_THRESHOLD} players have signed up. Please choose a Group A hole.`
       } else if (reason.includes("does not have enough space")) {
         title = 'Hole Full'
         hint = 'Choose a different hole with available space, or reduce the number of additional players in your group.'
@@ -260,11 +269,22 @@ export default function SignupForm({ onSignedUp }) {
                 onChange={e => { setHole(e.target.value); setMsg(null) }}
                 required
               >
-                {holeKeys.map(holeKey => (
-                  <option key={holeKey} value={holeKey}>
-                    Hole {holeKey} ({holes[holeKey].length}/{HOLE_CAPACITY})
-                  </option>
-                ))}
+                <optgroup label="Group A">
+                  {holeKeys.map(holeKey => (
+                    <option key={holeKey} value={holeKey}>
+                      {bUnlocked ? `Hole ${holeKey}A` : `Hole ${holeKey}`} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
+                    </option>
+                  ))}
+                </optgroup>
+                {bUnlocked && (
+                  <optgroup label="Group B">
+                    {bHoleKeys.map(holeKey => (
+                      <option key={holeKey} value={holeKey}>
+                        Hole {holeKey} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
@@ -303,17 +323,17 @@ export default function SignupForm({ onSignedUp }) {
             {holeKeys.map(holeKey => (
               <div
                 key={holeKey}
-                className={`hole-card${holes[holeKey].length >= HOLE_CAPACITY ? ' hole-card--full' : ''}`}
+                className={`hole-card${(holes[holeKey] || []).length >= HOLE_CAPACITY ? ' hole-card--full' : ''}`}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => handleDrop(e, holeKey)}
               >
-                <h3>Hole {holeKey}</h3>
-                <p className="hole-count">{holes[holeKey].length}/{HOLE_CAPACITY}</p>
-                {holes[holeKey].length === 0 ? (
+                <h3>{bUnlocked ? `Hole ${holeKey}A` : `Hole ${holeKey}`}</h3>
+                <p className="hole-count">{(holes[holeKey] || []).length}/{HOLE_CAPACITY}</p>
+                {(holes[holeKey] || []).length === 0 ? (
                   <p className="empty">No players.</p>
                 ) : (
                   <ul className="hole-player-list">
-                    {holes[holeKey].map(player => (
+                    {(holes[holeKey] || []).map(player => (
                       <li
                         key={player.id}
                         className="hole-player"
@@ -335,6 +355,52 @@ export default function SignupForm({ onSignedUp }) {
               </div>
             ))}
           </div>
+          {!bUnlocked && week && bUnlockRemaining > 0 && (
+            <p className="b-group-notice">
+              Group B holes unlock when {bUnlockRemaining} more player{bUnlockRemaining !== 1 ? 's' : ''} sign up ({totalAPlayers}/{B_GROUP_THRESHOLD}).
+            </p>
+          )}
+          {bUnlocked && (
+            <>
+              <h3 className="b-group-heading">Group B</h3>
+              <div className="holes-grid">
+                {bHoleKeys.map(holeKey => (
+                  <div
+                    key={holeKey}
+                    className={`hole-card hole-card--b-group${(holes[holeKey] || []).length >= HOLE_CAPACITY ? ' hole-card--full' : ''}`}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => handleDrop(e, holeKey)}
+                  >
+                    <h3>Hole {holeKey}</h3>
+                    <p className="hole-count">{(holes[holeKey] || []).length}/{HOLE_CAPACITY}</p>
+                    {(holes[holeKey] || []).length === 0 ? (
+                      <p className="empty">No players.</p>
+                    ) : (
+                      <ul className="hole-player-list">
+                        {(holes[holeKey] || []).map(player => (
+                          <li
+                            key={player.id}
+                            className="hole-player"
+                            draggable
+                            onDragStart={e => handleDragStart(e, holeKey, player.id)}
+                          >
+                            <span>{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                            <button
+                              type="button"
+                              className="btn-remove-player"
+                              onClick={() => handleRemove(holeKey, player)}
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
       {msg && <p className={`form-msg form-msg--${msg.type}`}>{msg.text}</p>}
