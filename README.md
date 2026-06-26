@@ -4,11 +4,12 @@ This React + Vite app implements a weekly golf-league signup system. It stores g
 
 New/updated features
 
-- No longer requires users to "set name" before signing up; general users can sign up anonymously (by entering name + email in the signup form).
+- No longer requires users to "set name" before signing up; general users can sign up directly in the main form with name + email.
 - Admin login moved to the bottom of the page — admins enter their full name (client-side) to get admin privileges (clear groups, edit during locked weeks).
 - Each player now provides an email (validated with a simple regex). The form enforces first + last name and a valid email for every player.
 - Profiles: saved name+email mapping stored in localStorage so future signups can use the browser datalist to quickly select existing names and autofill email.
 - Holes display: UI initially shows all 9 holes (1..9). Groups are assigned in round-robin order across holes. When more than 9 groups exist, holes receive multiple groups (A/B labels)
+- Lock window updated: Signups are locked weekly from Sunday 3:00 PM Eastern Time until Tuesday 3:00 PM Eastern Time. During that window only admins may modify groups.
 
 Storage keys
 

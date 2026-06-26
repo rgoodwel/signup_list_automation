@@ -38,7 +38,8 @@ function isLockedByWeek() {
   const lockStart = new Date(sunday)
   lockStart.setHours(15, 0, 0, 0)
   const lockEnd = new Date(lockStart)
-  lockEnd.setDate(lockStart.getDate() + 7)
+  // lock until Tuesday 3pm (Sunday 3pm -> Tuesday 3pm)
+  lockEnd.setDate(lockStart.getDate() + 2)
   return now >= lockStart && now < lockEnd
 }
 
@@ -49,7 +50,7 @@ export default function App() {
   // Signup form state: primary (name+email) and dynamic partners (array of {name,email})
   const [primaryName, setPrimaryName] = useState('')
   const [primaryEmail, setPrimaryEmail] = useState('')
-  const [partners, setPartners] = useState([{ name: '', email: '' }])
+  const [partners, setPartners] = useState([]) // start with no partner fields by default
 
   const [groups, setGroups] = useState([])
   const [profiles, setProfiles] = useState({})
@@ -114,7 +115,7 @@ export default function App() {
   function addSignup(e) {
     e && e.preventDefault()
 
-    if (locked && !isAdmin) return alert('Signups are locked for the week (Sunday 3pm ET). Only admins may modify groups.')
+    if (locked && !isAdmin) return alert('Signups are locked (Sunday 3pm ET → Tuesday 3pm ET). Only admins may modify groups.')
 
     const primary = normalizeName(primaryName)
     const primaryE = primaryEmail.trim()
@@ -170,7 +171,7 @@ export default function App() {
       addOrUpdateProfile(player.name, player.email)
       setPrimaryName('')
       setPrimaryEmail('')
-      setPartners([{ name: '', email: '' }])
+      setPartners([])
       return
     }
 
@@ -181,7 +182,7 @@ export default function App() {
       if (containsAll) {
         setPrimaryName('')
         setPrimaryEmail('')
-        setPartners([{ name: '', email: '' }])
+        setPartners([])
         return alert('Those players are already grouped together')
       }
     }
@@ -206,7 +207,7 @@ export default function App() {
 
       setPrimaryName('')
       setPrimaryEmail('')
-      setPartners([{ name: '', email: '' }])
+      setPartners([])
       return
     }
 
@@ -217,7 +218,7 @@ export default function App() {
       uniqueByCanonical.forEach(p => addOrUpdateProfile(p.name, p.email))
       setPrimaryName('')
       setPrimaryEmail('')
-      setPartners([{ name: '', email: '' }])
+      setPartners([])
       return
     }
 
@@ -225,7 +226,7 @@ export default function App() {
   }
 
   function removePlayer(groupId, player) {
-    if (locked && !isAdmin) return alert('Cannot remove players while groups are locked (Sunday 3pm ET).')
+    if (locked && !isAdmin) return alert('Cannot remove players while groups are locked (Sunday 3pm ET → Tuesday 3pm ET).')
     const updated = groups
       .map(g => {
         if (g.id !== groupId) return g
@@ -274,61 +275,76 @@ export default function App() {
       </header>
 
       <main>
-        <form onSubmit={addSignup} className="form" style={{marginTop:16}}>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <div style={{flex:1}}>
-              <input
-                list="profiles"
-                placeholder="Your full name (required)"
-                value={primaryName}
-                onChange={e => handlePrimaryNameChange(e.target.value)}
-                disabled={locked && !isAdmin}
-              />
-              <datalist id="profiles">
-                {profileList.map(p => (
-                  <option key={p.email + p.name} value={p.name}>{p.email}</option>
-                ))}
-              </datalist>
-            </div>
-            <div style={{flex:1}}>
-              <input
-                placeholder="Your email (required)"
-                value={primaryEmail}
-                onChange={e => setPrimaryEmail(e.target.value)}
-                disabled={locked && !isAdmin}
-              />
-            </div>
-          </div>
+        <div style={{marginTop:12, marginBottom:8}}>
+          <strong>{locked ? 'Locked for signups (Sunday 3pm ET → Tuesday 3pm ET)' : 'Open for signups'}</strong>
+        </div>
 
-          <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:8}}>
-            {partners.map((p, idx) => (
-              <div key={idx} style={{display:'flex', gap:6, alignItems:'center'}}>
+        <form onSubmit={addSignup} className="form" style={{marginTop:8}}>
+          <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+            <div style={{flex:1}}>
+              <div style={{display:'flex',gap:8}}>
                 <div style={{flex:1}}>
                   <input
                     list="profiles"
-                    placeholder={`Additional player ${idx + 1} (first & last)`}
-                    value={p.name}
-                    onChange={e => handlePartnerNameChange(idx, e.target.value)}
+                    placeholder="Your full name (required)"
+                    value={primaryName}
+                    onChange={e => handlePrimaryNameChange(e.target.value)}
                     disabled={locked && !isAdmin}
                   />
+                  <datalist id="profiles">
+                    {profileList.map(p => (
+                      <option key={p.email + p.name} value={p.name}>{p.email}</option>
+                    ))}
+                  </datalist>
                 </div>
+
                 <div style={{flex:1}}>
                   <input
-                    placeholder="email"
-                    value={p.email}
-                    onChange={e => updatePartner(idx, 'email', e.target.value)}
+                    placeholder="Your email (required)"
+                    value={primaryEmail}
+                    onChange={e => setPrimaryEmail(e.target.value)}
                     disabled={locked && !isAdmin}
                   />
                 </div>
-                <button type="button" onClick={() => removePartnerField(idx)} disabled={locked && !isAdmin} aria-label="Remove partner">−</button>
               </div>
-            ))}
-            <div>
-              <button type="button" onClick={addPartnerField} disabled={partners.length >= 3 || (locked && !isAdmin)}>＋ Add player</button>
+
+              {/* Add player option below initial player name */}
+              <div style={{marginTop:8}}>
+                <button type="button" onClick={addPartnerField} disabled={partners.length >= 3 || (locked && !isAdmin)}>＋ Add player</button>
+              </div>
+
+              {/* Partner fields (appear only when added) */}
+              <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:8}}>
+                {partners.map((p, idx) => (
+                  <div key={idx} style={{display:'flex', gap:6, alignItems:'center'}}>
+                    <div style={{flex:1}}>
+                      <input
+                        list="profiles"
+                        placeholder={`Additional player ${idx + 1} (first & last)`}
+                        value={p.name}
+                        onChange={e => handlePartnerNameChange(idx, e.target.value)}
+                        disabled={locked && !isAdmin}
+                      />
+                    </div>
+                    <div style={{flex:1}}>
+                      <input
+                        placeholder="email"
+                        value={p.email}
+                        onChange={e => updatePartner(idx, 'email', e.target.value)}
+                        disabled={locked && !isAdmin}
+                      />
+                    </div>
+                    <button type="button" onClick={() => removePartnerField(idx)} disabled={locked && !isAdmin} aria-label="Remove partner">−</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sign Up button to the right of the player(s) */}
+            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+              <button type="submit" style={{height:40}} disabled={locked && !isAdmin}>Sign up</button>
             </div>
           </div>
-
-          <button type="submit" style={{marginTop:12}} disabled={locked && !isAdmin}>Sign up</button>
         </form>
 
         <section className="list" style={{marginTop:16}}>
@@ -338,7 +354,6 @@ export default function App() {
               {isAdmin ? (
                 <button className="clear" onClick={clearAll}>Admin: Clear</button>
               ) : null}
-              <span style={{marginLeft:12}}>{locked ? 'Locked for the week (Sunday 3pm ET)' : 'Open for signups'}</span>
             </div>
           </div>
 
@@ -357,7 +372,7 @@ export default function App() {
                     <div key={g.id} style={{marginTop:8,padding:8,borderRadius:6,background:'linear-gradient(180deg,rgba(255,255,255,0.01),transparent)'}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                         <div>
-                          <strong>{String.fromCharCode(65 + idx)}{holeMap[holeNum].length > 1 ? '' : ''}</strong>
+                          <strong>{String.fromCharCode(65 + idx)}</strong>
                           <div style={{fontSize:12,color:'var(--muted)'}}>Group — {g.players.length} / 4</div>
                         </div>
                         <div>
@@ -367,10 +382,9 @@ export default function App() {
 
                       <div style={{marginTop:8}}>
                         {g.players.map(p => (
-                          <div key={p.email + p.name} style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+                          <div key={p.name} style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
                             <div style={{flex:1}}>
                               <div>{p.name}</div>
-                              <div style={{fontSize:12,color:'var(--muted)'}}>{p.email}</div>
                             </div>
                             <button className="remove" onClick={() => removePlayer(g.id, p)} disabled={locked && !isAdmin}>Remove</button>
                           </div>
