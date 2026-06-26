@@ -9,6 +9,80 @@ const KEYS = {
   pin:     'sla.adminPin',      // string | null
 }
 
+export const HOLE_COUNT = 9
+export const HOLE_CAPACITY = 4
+
+function createId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function createEmptyHoles() {
+  const holes = {}
+  for (let i = 1; i <= HOLE_COUNT; i++) holes[String(i)] = []
+  return holes
+}
+
+function normalizeHole(value) {
+  const n = parseInt(value, 10)
+  if (Number.isNaN(n)) return null
+  if (n < 1 || n > HOLE_COUNT) return null
+  return String(n)
+}
+
+function ensureWeekHasHoles(week) {
+  if (!week || typeof week !== 'object') return false
+  let changed = false
+  if (!week.holes || typeof week.holes !== 'object') {
+    week.holes = createEmptyHoles()
+    changed = true
+  }
+  for (let i = 1; i <= HOLE_COUNT; i++) {
+    const key = String(i)
+    if (!Array.isArray(week.holes[key])) {
+      week.holes[key] = []
+      changed = true
+    }
+  }
+
+  if (week.holesInitialized) return changed
+
+  const signups = Array.isArray(week.signups) ? week.signups : []
+  let slotIndex = 0
+  for (const signup of signups) {
+    if (!signup.id) {
+      signup.id = createId()
+      changed = true
+    }
+    const groupNames = Array.isArray(signup.additionalPlayers) ? signup.additionalPlayers : []
+    const members = [
+      { name: signup.name, email: signup.email, isPrimary: true },
+      ...groupNames.map(n => ({ name: n, email: null, isPrimary: false })),
+    ]
+    for (const member of members) {
+      const hole = normalizeHole(signup.hole) || String(Math.floor(slotIndex / HOLE_CAPACITY) + 1)
+      const holeKey = normalizeHole(hole) || String(HOLE_COUNT)
+      if (!week.holes[holeKey]) week.holes[holeKey] = []
+      if (week.holes[holeKey].length < HOLE_CAPACITY) {
+        week.holes[holeKey].push({
+          id: createId(),
+          signupId: signup.id,
+          isPrimary: member.isPrimary,
+          name: member.name,
+          email: member.email || null,
+          signedUpAt: signup.signedUpAt || Date.now(),
+        })
+      }
+      slotIndex++
+    }
+  }
+  week.holesInitialized = true
+  changed = true
+  return changed
+}
+
 // ── ISO week key helpers ────────────────────────────────────────────────────
 
 /** Return ISO year and week number for a Date object. */
@@ -247,7 +321,13 @@ export function upsertPlayer({ name, email }) {
 // ── Weeks ───────────────────────────────────────────────────────────────────
 
 export function getWeeks() {
-  return read(KEYS.weeks, {})
+  const weeks = read(KEYS.weeks, {})
+  let changed = false
+  for (const week of Object.values(weeks)) {
+    if (ensureWeekHasHoles(week)) changed = true
+  }
+  if (changed) write(KEYS.weeks, weeks)
+  return weeks
 }
 
 export function getWeek(weekKey) {
@@ -263,10 +343,18 @@ export function openWeek(weekKey) {
     if (!weeks[k].closedAt) weeks[k].closedAt = Date.now()
   }
   if (!weeks[weekKey]) {
-    weeks[weekKey] = { weekKey, signups: [], openedAt: Date.now(), closedAt: null }
+    weeks[weekKey] = {
+      weekKey,
+      signups: [],
+      holes: createEmptyHoles(),
+      holesInitialized: true,
+      openedAt: Date.now(),
+      closedAt: null,
+    }
   } else {
     weeks[weekKey].closedAt = null   // re-open
     weeks[weekKey].openedAt = weeks[weekKey].openedAt || Date.now()
+    ensureWeekHasHoles(weeks[weekKey])
   }
   write(KEYS.weeks, weeks)
   write(KEYS.current, weekKey)
@@ -293,22 +381,67 @@ export function getCurrentWeekKey() {
  * Add a signup to the current week.
  * Returns { ok: true } or { ok: false, reason: string }.
  */
-export function addSignupToWeek({ name, email }) {
+export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   const weekKey = getCurrentWeekKey()
   if (!weekKey) return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
 
   const weeks = getWeeks()
   if (!weeks[weekKey]) return { ok: false, reason: 'Week record not found.' }
+  ensureWeekHasHoles(weeks[weekKey])
 
   const emailKey = email.trim().toLowerCase()
   const already = weeks[weekKey].signups.some(s => s.email === emailKey)
   if (already) return { ok: false, reason: "You're already signed up for this week!" }
+  const holeKey = normalizeHole(hole)
+  if (!holeKey) return { ok: false, reason: 'Please choose a valid hole.' }
+
+  const extras = additionalPlayers
+    .map(p => p.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+
+  const groupSize = 1 + extras.length
+  const holePlayers = weeks[weekKey].holes[holeKey] || []
+  if (holePlayers.length + groupSize > HOLE_CAPACITY) {
+    return {
+      ok: false,
+      reason: `Hole ${holeKey} does not have enough space for ${groupSize} player(s).`,
+    }
+  }
+
+  const signedUpAt = Date.now()
+  const signupId = createId()
 
   // Upsert player
   upsertPlayer({ name, email: emailKey })
 
   // Add to week
-  weeks[weekKey].signups.push({ email: emailKey, name: name.trim(), signedUpAt: Date.now() })
+  weeks[weekKey].signups.push({
+    id: signupId,
+    hole: holeKey,
+    email: emailKey,
+    name: name.trim(),
+    additionalPlayers: extras,
+    signedUpAt,
+  })
+  weeks[weekKey].holes[holeKey].push({
+    id: createId(),
+    signupId,
+    isPrimary: true,
+    name: name.trim(),
+    email: emailKey,
+    signedUpAt,
+  })
+  for (const extra of extras) {
+    weeks[weekKey].holes[holeKey].push({
+      id: createId(),
+      signupId,
+      isPrimary: false,
+      name: extra,
+      email: null,
+      signedUpAt,
+    })
+  }
   write(KEYS.weeks, weeks)
 
   // Track week in player record
@@ -318,6 +451,64 @@ export function addSignupToWeek({ name, email }) {
     write(KEYS.players, players)
   }
 
+  return { ok: true }
+}
+
+export function removePlayerFromHole({ weekKey, hole, playerId }) {
+  const weeks = getWeeks()
+  const week = weeks[weekKey]
+  if (!week) return { ok: false, reason: 'Week record not found.' }
+  ensureWeekHasHoles(week)
+
+  const holeKey = normalizeHole(hole)
+  if (!holeKey) return { ok: false, reason: 'Invalid hole.' }
+  const playersOnHole = week.holes[holeKey] || []
+  const index = playersOnHole.findIndex(p => p.id === playerId)
+  if (index < 0) return { ok: false, reason: 'Player not found on hole.' }
+
+  const [removed] = playersOnHole.splice(index, 1)
+  if (removed?.isPrimary && removed.email) {
+    week.signups = week.signups.filter(s => s.email !== removed.email)
+  } else if (removed?.signupId) {
+    const signup = week.signups.find(s => s.id === removed.signupId)
+    if (signup && Array.isArray(signup.additionalPlayers)) {
+      signup.additionalPlayers = signup.additionalPlayers.filter(n => n !== removed.name)
+    }
+  }
+
+  write(KEYS.weeks, weeks)
+  return { ok: true }
+}
+
+export function movePlayerBetweenHoles({ weekKey, fromHole, toHole, playerId }) {
+  const weeks = getWeeks()
+  const week = weeks[weekKey]
+  if (!week) return { ok: false, reason: 'Week record not found.' }
+  ensureWeekHasHoles(week)
+
+  const fromKey = normalizeHole(fromHole)
+  const toKey = normalizeHole(toHole)
+  if (!fromKey || !toKey) return { ok: false, reason: 'Invalid hole.' }
+  if (fromKey === toKey) return { ok: true }
+
+  const fromPlayers = week.holes[fromKey] || []
+  const toPlayers = week.holes[toKey] || []
+  if (toPlayers.length >= HOLE_CAPACITY) {
+    return { ok: false, reason: `Hole ${toKey} is full.` }
+  }
+
+  const index = fromPlayers.findIndex(p => p.id === playerId)
+  if (index < 0) return { ok: false, reason: 'Player not found on hole.' }
+
+  const [moved] = fromPlayers.splice(index, 1)
+  toPlayers.push(moved)
+
+  if (moved.isPrimary && moved.signupId) {
+    const signup = week.signups.find(s => s.id === moved.signupId)
+    if (signup) signup.hole = toKey
+  }
+
+  write(KEYS.weeks, weeks)
   return { ok: true }
 }
 
@@ -365,4 +556,3 @@ export function computePlayerStats(player, allWeekKeys) {
 
   return { firstWeekKey, lastWeekKey, totalWeeks, currentStreak: streak }
 }
-

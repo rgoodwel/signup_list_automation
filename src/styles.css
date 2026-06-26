@@ -27,7 +27,7 @@ header h1{margin:0 0 4px}
 
 /* ── Signup form ── */
 .form{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
-.form input{flex:1;min-width:140px;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.02);color:inherit}
+.form input,.form select{flex:1;min-width:140px;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.02);color:inherit}
 .form button{padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#06283a;font-weight:600;cursor:pointer}
 .form-msg{margin-top:8px;padding:8px 12px;border-radius:8px;font-size:14px}
 .form-msg--success{background:rgba(74,222,128,0.1);color:var(--success)}
@@ -36,6 +36,14 @@ header h1{margin:0 0 4px}
 .closed-notice{margin:16px 0}
 .week-closed-notice{color:var(--muted);margin:0 0 6px;font-style:italic;font-size:15px}
 .reopen-notice{color:var(--muted);font-size:13px;margin:0}
+.holes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.hole-card{padding:12px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.02);min-height:160px}
+.hole-card h3{margin:0 0 4px;font-size:15px}
+.hole-card--full{border-color:rgba(248,113,113,0.5)}
+.hole-count{margin:0 0 8px;color:var(--muted);font-size:13px}
+.hole-player-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.hole-player{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);cursor:grab}
+.btn-remove-player{border:none;background:rgba(248,113,113,0.18);color:var(--danger);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px}
 
 /* ── Panel ── */
 .panel{margin-top:20px;padding:20px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px}
