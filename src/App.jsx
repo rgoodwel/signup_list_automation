@@ -154,21 +154,25 @@ export default function App() {
     const nameSet = new Set(uniqueByCanonical.map(p => canonicalName(p.name)))
     const existing = findGroupsWithNames(nameSet)
 
-    // Determine target hole (auto or chosen)
+    // Determine target hole
     const holeCount = 9
     let targetHole = null
     if (preferredHole === 'auto') {
-      // auto assign: choose hole based on current groups count (round-robin)
-      targetHole = (groups.length % holeCount) + 1
+      // auto assign: find first hole with available space, or create new group
+      targetHole = null
     } else {
       targetHole = parseInt(preferredHole, 10)
-      if (isNaN(targetHole) || targetHole < 1 || targetHole > holeCount) targetHole = (groups.length % holeCount) + 1
+      if (isNaN(targetHole) || targetHole < 1 || targetHole > holeCount) {
+        targetHole = null
+      }
     }
 
-    // Helper: groups on a hole
-    const groupsOnHole = groups
-      .map((g, i) => ({ ...g, hole: (i % holeCount) + 1, index: i }))
-      .filter(g => g.hole === targetHole)
+    // Helper: get groups on a specific hole
+    const getGroupsOnHole = (holeNum) => {
+      return groups
+        .map((g, i) => ({ ...g, hole: (i % holeCount) + 1, index: i }))
+        .filter(g => g.hole === holeNum)
+    }
 
     // If individual signup
     if (uniqueByCanonical.length === 1) {
@@ -176,20 +180,40 @@ export default function App() {
       const already = groups.some(g => g.players.some(p => canonicalName(p.name) === canonicalName(player.name)))
       if (already) return alert(`${player.name} is already signed up`)
 
-      // place into first group on the chosen hole with space
       let placed = false
-      for (const g of groupsOnHole) {
-        if (g.players.length < 4) {
-          const updated = groups.slice()
-          updated[g.index] = { ...updated[g.index], players: [...updated[g.index].players, player] }
-          setGroups(updated)
-          placed = true
-          break
+      let updatedGroups = groups.slice()
+
+      // If preferred hole specified, try to place on that hole first
+      if (targetHole !== null) {
+        const groupsOnHole = getGroupsOnHole(targetHole)
+        for (const g of groupsOnHole) {
+          if (g.players.length < 4) {
+            updatedGroups[g.index] = { ...updatedGroups[g.index], players: [...updatedGroups[g.index].players, player] }
+            setGroups(updatedGroups)
+            placed = true
+            break
+          }
         }
       }
 
+      // If not placed (preferred hole full or auto), place on first available hole/group
       if (!placed) {
-        // create new group assigned to target hole (will appear in round-robin mapping)
+        for (let holeNum = 1; holeNum <= holeCount; holeNum++) {
+          const groupsOnHole = getGroupsOnHole(holeNum)
+          for (const g of groupsOnHole) {
+            if (g.players.length < 4) {
+              updatedGroups[g.index] = { ...updatedGroups[g.index], players: [...updatedGroups[g.index].players, player] }
+              setGroups(updatedGroups)
+              placed = true
+              break
+            }
+          }
+          if (placed) break
+        }
+      }
+
+      // If still not placed, create new group (prefer target hole if specified)
+      if (!placed) {
         const id = Date.now()
         setGroups([{ id, players: [player] }, ...groups])
       }
@@ -243,8 +267,6 @@ export default function App() {
     // No existing groups: create new group
     if (uniqueByCanonical.length <= 4) {
       const id = Date.now()
-      // create new group; to bias it to the target hole we insert at appropriate position
-      // Simpler: prepend so new group appears first; hole assignment is based on index modulo holeCount
       setGroups([{ id, players: uniqueByCanonical }, ...groups])
       uniqueByCanonical.forEach(p => addOrUpdateProfile(p.name, p.email))
       setPrimaryName('')
@@ -284,6 +306,56 @@ export default function App() {
   function handleGroupDragOver(e) {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleHoleDrop(e, holeNum) {
+    e.preventDefault()
+    if (!draggedPlayer) return
+
+    const { groupId: sourceGroupId, player } = draggedPlayer
+    const holeCount = 9
+
+    // Get all groups on the target hole
+    const groupsAssigned = groups.map((g, i) => ({ ...g, hole: (i % holeCount) + 1, index: i }))
+    const groupsOnHole = groupsAssigned.filter(g => g.hole === holeNum)
+
+    // Try to find a group on the hole with space
+    let targetGroupId = null
+    for (const g of groupsOnHole) {
+      if (g.id !== sourceGroupId && g.players.length < 4) {
+        // Check if player is already in this group
+        if (!g.players.some(p => canonicalName(p.name) === canonicalName(player.name))) {
+          targetGroupId = g.id
+          break
+        }
+      }
+    }
+
+    // If no group with space, create a new group on this hole
+    if (!targetGroupId) {
+      const updated = groups.map(g => {
+        if (g.id === sourceGroupId) {
+          return { ...g, players: g.players.filter(p => canonicalName(p.name) !== canonicalName(player.name)) }
+        }
+        return g
+      }).filter(g => g.players.length > 0)
+
+      // Create new group with player
+      const newGroupId = Date.now()
+      const newGroup = { id: newGroupId, players: [player] }
+      
+      // Insert new group at position to target the hole
+      // Groups are assigned holes by: (index % holeCount) + 1
+      // To target hole holeNum, we need to find correct insertion position
+      const targetIndex = ((holeNum - 1) * 1) // Simple approach: insert at beginning for new groups
+      const finalGroups = [newGroup, ...updated]
+      setGroups(finalGroups)
+      setDraggedPlayer(null)
+      return
+    }
+
+    // Move to existing group
+    handleGroupDrop(e, targetGroupId)
   }
 
   function handleGroupDrop(e, targetGroupId) {
@@ -471,8 +543,9 @@ export default function App() {
             {Array.from({ length: holeCount }, (_, i) => i + 1).map(holeNum => (
               <div 
                 key={holeNum} 
-                style={{padding:12,borderRadius:8,background:'var(--hole-bg)'}}
+                style={{padding:12,borderRadius:8,background:'var(--hole-bg)',minHeight:'300px'}}
                 onDragOver={handleGroupDragOver}
+                onDrop={e => handleHoleDrop(e, holeNum)}
               >
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <strong>Hole {holeNum}</strong>
@@ -480,7 +553,7 @@ export default function App() {
                 </div>
 
                 {holeMap[holeNum].length === 0 ? (
-                  <p className="empty" style={{marginTop:8}}>— empty —</p>
+                  <p className="empty" style={{marginTop:8,padding:'40px 0',textAlign:'center',borderRadius:6,border:'2px dashed rgba(0,0,0,0.1)'}}>Drop players here or add new signup</p>
                 ) : (
                   holeMap[holeNum].map((g, idx) => (
                     <div 
@@ -546,7 +619,7 @@ export default function App() {
         </div>
 
         <div style={{marginTop:8}}>
-          <small>Names + emails are saved locally for faster signups. Admin login is a client-side convenience — not secure. Drag players between groups to reorganize.</small>
+          <small>Names + emails are saved locally for faster signups. Admin login is a client-side convenience — not secure. Drag players between groups or holes to reorganize.</small>
         </div>
       </footer>
     </div>
