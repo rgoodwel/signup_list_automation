@@ -575,7 +575,9 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
     })
   }
 
-  // Persist the sticky B-group unlock flag once threshold is reached
+  // Persist the sticky B-group unlock flag once threshold is reached.
+  // Once set to true this flag is never cleared, so Group B holes remain
+  // available even if the A-group player count later drops below B_GROUP_THRESHOLD.
   if (!weeks[weekKey].bGroupsUnlocked && areBGroupsUnlocked(weeks[weekKey])) {
     weeks[weekKey].bGroupsUnlocked = true
   }
