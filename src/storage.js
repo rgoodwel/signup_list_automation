@@ -12,6 +12,34 @@ const KEYS = {
 export const HOLE_COUNT = 9
 export const HOLE_CAPACITY = 4
 
+/** Normalize a name for comparison: lowercase, collapsed whitespace. */
+function normalizeName(n) {
+  return (n || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/**
+ * Returns true when `name` contains at least two non-empty words
+ * (first name + last name).
+ */
+export function isFullName(name) {
+  return (name || '').trim().split(/\s+/).filter(Boolean).length >= 2
+}
+
+/**
+ * Search all holes in a week for a player whose name matches `name`
+ * (case-insensitive, whitespace-collapsed).
+ * Returns the first `{ holeKey, player }` found, or null.
+ */
+function findPlayerNameInWeek(week, name) {
+  const target = normalizeName(name)
+  for (const [holeKey, players] of Object.entries(week.holes)) {
+    for (const player of players) {
+      if (normalizeName(player.name) === target) return { holeKey, player }
+    }
+  }
+  return null
+}
+
 function createId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -384,6 +412,11 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   const weekKey = getCurrentWeekKey()
   if (!weekKey) return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
 
+  // Validate primary name
+  if (!isFullName(name)) {
+    return { ok: false, reason: 'Please enter your first and last name (e.g., "Jane Smith").' }
+  }
+
   const weeks = getWeeks()
   if (!weeks[weekKey]) return { ok: false, reason: 'Week record not found.' }
   ensureWeekHasHoles(weeks[weekKey])
@@ -394,10 +427,64 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   const holeKey = normalizeHole(hole)
   if (!holeKey) return { ok: false, reason: 'Please choose a valid hole.' }
 
-  const extras = additionalPlayers
+  const rawExtras = additionalPlayers
     .map(p => p.trim())
     .filter(Boolean)
     .slice(0, 3)
+
+  // Validate additional player names
+  for (const extra of rawExtras) {
+    if (!isFullName(extra)) {
+      return {
+        ok: false,
+        reason: `"${extra}" — additional player names must include a first and last name (e.g., "John Smith").`,
+      }
+    }
+  }
+
+  // ── Duplicate detection ────────────────────────────────────────────────────
+  // Check if the primary player's name already exists as a guest in this week.
+  const primaryNameMatch = findPlayerNameInWeek(weeks[weekKey], name.trim())
+  if (primaryNameMatch && !primaryNameMatch.player.isPrimary) {
+    if (primaryNameMatch.holeKey === holeKey) {
+      // Auto-group: upgrade the guest entry to a real primary signup.
+      // Remove the guest slot so the capacity check uses the updated count.
+      const hPlayers = weeks[weekKey].holes[holeKey]
+      const guestIdx = hPlayers.findIndex(p => p.id === primaryNameMatch.player.id)
+      if (guestIdx >= 0) hPlayers.splice(guestIdx, 1)
+      // Remove from the parent signup's additionalPlayers list.
+      const parentSignup = weeks[weekKey].signups.find(s => s.id === primaryNameMatch.player.signupId)
+      if (parentSignup && Array.isArray(parentSignup.additionalPlayers)) {
+        parentSignup.additionalPlayers = parentSignup.additionalPlayers.filter(
+          n => normalizeName(n) !== normalizeName(name.trim())
+        )
+      }
+    } else {
+      return {
+        ok: false,
+        reason: `${name.trim()} is already signed up as a guest on Hole ${primaryNameMatch.holeKey}. Please manage the duplicate manually.`,
+      }
+    }
+  }
+
+  // Check each additional player against all players already on the week.
+  const extras = []
+  for (const extra of rawExtras) {
+    const match = findPlayerNameInWeek(weeks[weekKey], extra)
+    if (match) {
+      if (match.holeKey === holeKey) {
+        // Already on the same hole — auto-group by skipping the duplicate add.
+      } else {
+        return {
+          ok: false,
+          reason: `${extra} is already signed up on Hole ${match.holeKey}. Please remove them from additional players or manage the duplicate manually.`,
+        }
+      }
+    } else {
+      extras.push(extra)
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 
   const groupSize = 1 + extras.length
   const holePlayers = weeks[weekKey].holes[holeKey] || []

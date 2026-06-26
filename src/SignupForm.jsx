@@ -9,6 +9,7 @@ import {
   isInSignupWindow,
   getNextWindowOpenDate,
   autoOpenWeekIfNeeded,
+  isFullName,
   HOLE_COUNT,
   HOLE_CAPACITY,
 } from './storage'
@@ -55,6 +56,20 @@ export default function SignupForm({ onSignedUp }) {
   function handleSubmit(e) {
     e.preventDefault()
     if (!name.trim() || !email.trim()) return
+
+    // Client-side full-name validation
+    if (!isFullName(name)) {
+      setMsg({ type: 'error', text: 'Please enter your first and last name (e.g., "Jane Smith").' })
+      return
+    }
+    for (let i = 0; i < additionalCount; i++) {
+      const p = additionalPlayers[i].trim()
+      if (p && !isFullName(p)) {
+        setMsg({ type: 'error', text: `Additional Player ${i + 1} must include a first and last name.` })
+        return
+      }
+    }
+
     const result = addSignupToWeek({
       name,
       email,
@@ -154,7 +169,7 @@ export default function SignupForm({ onSignedUp }) {
           <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
               <input
-                placeholder="Name"
+                placeholder="First Last (e.g., Jane Smith)"
                 value={name}
                 onChange={e => { setName(e.target.value); setMsg(null) }}
                 required
@@ -194,7 +209,7 @@ export default function SignupForm({ onSignedUp }) {
               {Array.from({ length: additionalCount }, (_, i) => (
                 <div key={i} className="additional-player-row">
                   <input
-                    placeholder={`Additional Player ${i + 1}`}
+                    placeholder={`Additional Player ${i + 1} (First Last)`}
                     value={additionalPlayers[i]}
                     onChange={e => updateAdditionalPlayer(i, e.target.value)}
                   />
