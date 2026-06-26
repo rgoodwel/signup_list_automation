@@ -154,24 +154,15 @@ export default function App() {
     const nameSet = new Set(uniqueByCanonical.map(p => canonicalName(p.name)))
     const existing = findGroupsWithNames(nameSet)
 
-    // Determine target hole
     const holeCount = 9
     let targetHole = null
     if (preferredHole === 'auto') {
-      // auto assign: find first hole with available space, or create new group
-      targetHole = null
+      targetHole = null // will find first available
     } else {
       targetHole = parseInt(preferredHole, 10)
       if (isNaN(targetHole) || targetHole < 1 || targetHole > holeCount) {
         targetHole = null
       }
-    }
-
-    // Helper: get groups on a specific hole
-    const getGroupsOnHole = (holeNum) => {
-      return groups
-        .map((g, i) => ({ ...g, hole: (i % holeCount) + 1, index: i }))
-        .filter(g => g.hole === holeNum)
     }
 
     // If individual signup
@@ -185,10 +176,11 @@ export default function App() {
 
       // If preferred hole specified, try to place on that hole first
       if (targetHole !== null) {
-        const groupsOnHole = getGroupsOnHole(targetHole)
-        for (const g of groupsOnHole) {
-          if (g.players.length < 4) {
-            updatedGroups[g.index] = { ...updatedGroups[g.index], players: [...updatedGroups[g.index].players, player] }
+        for (let i = 0; i < updatedGroups.length; i++) {
+          const g = updatedGroups[i]
+          const holeNum = (i % holeCount) + 1
+          if (holeNum === targetHole && g.players.length < 4) {
+            updatedGroups[i] = { ...g, players: [...g.players, player] }
             setGroups(updatedGroups)
             placed = true
             break
@@ -196,13 +188,14 @@ export default function App() {
         }
       }
 
-      // If not placed (preferred hole full or auto), place on first available hole/group
+      // If not placed (preferred hole full or auto), place on first available hole/group in sequence
       if (!placed) {
         for (let holeNum = 1; holeNum <= holeCount; holeNum++) {
-          const groupsOnHole = getGroupsOnHole(holeNum)
-          for (const g of groupsOnHole) {
-            if (g.players.length < 4) {
-              updatedGroups[g.index] = { ...updatedGroups[g.index], players: [...updatedGroups[g.index].players, player] }
+          for (let i = 0; i < updatedGroups.length; i++) {
+            const g = updatedGroups[i]
+            const gHole = (i % holeCount) + 1
+            if (gHole === holeNum && g.players.length < 4) {
+              updatedGroups[i] = { ...g, players: [...g.players, player] }
               setGroups(updatedGroups)
               placed = true
               break
@@ -212,7 +205,7 @@ export default function App() {
         }
       }
 
-      // If still not placed, create new group (prefer target hole if specified)
+      // If still not placed, create new group
       if (!placed) {
         const id = Date.now()
         setGroups([{ id, players: [player] }, ...groups])
@@ -298,8 +291,8 @@ export default function App() {
   }
 
   // Drag and drop handlers
-  function handlePlayerDragStart(e, groupId, player) {
-    setDraggedPlayer({ groupId, player })
+  function handlePlayerDragStart(e, groupId, playerName) {
+    setDraggedPlayer({ groupId, playerName })
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -308,61 +301,11 @@ export default function App() {
     e.dataTransfer.dropEffect = 'move'
   }
 
-  function handleHoleDrop(e, holeNum) {
-    e.preventDefault()
-    if (!draggedPlayer) return
-
-    const { groupId: sourceGroupId, player } = draggedPlayer
-    const holeCount = 9
-
-    // Get all groups on the target hole
-    const groupsAssigned = groups.map((g, i) => ({ ...g, hole: (i % holeCount) + 1, index: i }))
-    const groupsOnHole = groupsAssigned.filter(g => g.hole === holeNum)
-
-    // Try to find a group on the hole with space
-    let targetGroupId = null
-    for (const g of groupsOnHole) {
-      if (g.id !== sourceGroupId && g.players.length < 4) {
-        // Check if player is already in this group
-        if (!g.players.some(p => canonicalName(p.name) === canonicalName(player.name))) {
-          targetGroupId = g.id
-          break
-        }
-      }
-    }
-
-    // If no group with space, create a new group on this hole
-    if (!targetGroupId) {
-      const updated = groups.map(g => {
-        if (g.id === sourceGroupId) {
-          return { ...g, players: g.players.filter(p => canonicalName(p.name) !== canonicalName(player.name)) }
-        }
-        return g
-      }).filter(g => g.players.length > 0)
-
-      // Create new group with player
-      const newGroupId = Date.now()
-      const newGroup = { id: newGroupId, players: [player] }
-      
-      // Insert new group at position to target the hole
-      // Groups are assigned holes by: (index % holeCount) + 1
-      // To target hole holeNum, we need to find correct insertion position
-      const targetIndex = ((holeNum - 1) * 1) // Simple approach: insert at beginning for new groups
-      const finalGroups = [newGroup, ...updated]
-      setGroups(finalGroups)
-      setDraggedPlayer(null)
-      return
-    }
-
-    // Move to existing group
-    handleGroupDrop(e, targetGroupId)
-  }
-
   function handleGroupDrop(e, targetGroupId) {
     e.preventDefault()
     if (!draggedPlayer) return
 
-    const { groupId: sourceGroupId, player } = draggedPlayer
+    const { groupId: sourceGroupId, playerName } = draggedPlayer
 
     // Can't drop on same group
     if (sourceGroupId === targetGroupId) {
@@ -370,10 +313,23 @@ export default function App() {
       return
     }
 
+    // Find the source group and the player object
+    const sourceGroup = groups.find(g => g.id === sourceGroupId)
+    if (!sourceGroup) {
+      setDraggedPlayer(null)
+      return
+    }
+
+    const playerToMove = sourceGroup.players.find(p => canonicalName(p.name) === canonicalName(playerName))
+    if (!playerToMove) {
+      setDraggedPlayer(null)
+      return
+    }
+
     // Check if player already in target group
     const targetGroup = groups.find(g => g.id === targetGroupId)
-    if (targetGroup && targetGroup.players.some(p => canonicalName(p.name) === canonicalName(player.name))) {
-      alert(`${player.name} is already in that group`)
+    if (targetGroup && targetGroup.players.some(p => canonicalName(p.name) === canonicalName(playerName))) {
+      alert(`${playerName} is already in that group`)
       setDraggedPlayer(null)
       return
     }
@@ -388,15 +344,68 @@ export default function App() {
     // Move player: remove from source, add to target
     const updated = groups.map(g => {
       if (g.id === sourceGroupId) {
-        return { ...g, players: g.players.filter(p => canonicalName(p.name) !== canonicalName(player.name)) }
+        return { ...g, players: g.players.filter(p => canonicalName(p.name) !== canonicalName(playerName)) }
       }
       if (g.id === targetGroupId) {
-        return { ...g, players: [...g.players, player] }
+        return { ...g, players: [...g.players, playerToMove] }
       }
       return g
     }).filter(g => g.players.length > 0)
 
     setGroups(updated)
+    setDraggedPlayer(null)
+  }
+
+  function handleHoleDrop(e, holeNum) {
+    e.preventDefault()
+    if (!draggedPlayer) return
+
+    const { groupId: sourceGroupId, playerName } = draggedPlayer
+    const holeCount = 9
+
+    // Find the source group and player object
+    const sourceGroup = groups.find(g => g.id === sourceGroupId)
+    if (!sourceGroup) {
+      setDraggedPlayer(null)
+      return
+    }
+
+    const playerToMove = sourceGroup.players.find(p => canonicalName(p.name) === canonicalName(playerName))
+    if (!playerToMove) {
+      setDraggedPlayer(null)
+      return
+    }
+
+    // Try to find a group on the hole with space
+    let targetGroupId = null
+    for (let i = 0; i < groups.length; i++) {
+      const g = groups[i]
+      const gHole = (i % holeCount) + 1
+      if (gHole === holeNum && g.id !== sourceGroupId && g.players.length < 4) {
+        if (!g.players.some(p => canonicalName(p.name) === canonicalName(playerName))) {
+          targetGroupId = g.id
+          break
+        }
+      }
+    }
+
+    // If found a group with space, move there
+    if (targetGroupId) {
+      handleGroupDrop(e, targetGroupId)
+      return
+    }
+
+    // If no group with space, create a new group on this hole
+    const updated = groups.map(g => {
+      if (g.id === sourceGroupId) {
+        return { ...g, players: g.players.filter(p => canonicalName(p.name) !== canonicalName(playerName)) }
+      }
+      return g
+    }).filter(g => g.players.length > 0)
+
+    const newGroupId = Date.now()
+    const newGroup = { id: newGroupId, players: [playerToMove] }
+    setGroups([newGroup, ...updated])
     setDraggedPlayer(null)
   }
 
@@ -406,11 +415,13 @@ export default function App() {
 
   // Hole assignment
   const holeCount = 9
-  const groupsAssigned = groups.map((g, i) => ({ ...g, hole: (i % holeCount) + 1 }))
-  // Map holeNumber -> array of groups
+  // Map holeNumber -> array of groups with their indices
   const holeMap = {}
   for (let i = 1; i <= holeCount; i++) holeMap[i] = []
-  groupsAssigned.forEach((g, idx) => holeMap[g.hole].push({ ...g, index: idx }))
+  groups.forEach((g, idx) => {
+    const hole = (idx % holeCount) + 1
+    holeMap[hole].push({ ...g, index: idx, hole })
+  })
 
   // Calculate total players
   const totalPlayers = groups.reduce((sum, g) => sum + g.players.length, 0)
@@ -578,7 +589,7 @@ export default function App() {
                             key={p.name} 
                             style={{display:'flex',alignItems:'center',gap:8,marginTop:6,cursor:'grab',padding:4,borderRadius:4,backgroundColor:'rgba(0,0,0,0.02)'}}
                             draggable
-                            onDragStart={e => handlePlayerDragStart(e, g.id, p)}
+                            onDragStart={e => handlePlayerDragStart(e, g.id, p.name)}
                             onDragEnd={handlePlayerDragEnd}
                           >
                             <div style={{flex:1}}>
