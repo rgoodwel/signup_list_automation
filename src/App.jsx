@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import AdminPanel from './Admin'
 
 const STORAGE_KEY = 'signup_list_automation.groups_v3'
 const PROFILES_KEY = 'signup_list_automation.profiles_v1'
@@ -46,11 +47,13 @@ function isLockedByWeek() {
 export default function App() {
   const [currentAdmin, setCurrentAdmin] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   // Signup form state: primary (name+email) and dynamic partners (array of {name,email})
   const [primaryName, setPrimaryName] = useState('')
   const [primaryEmail, setPrimaryEmail] = useState('')
   const [partners, setPartners] = useState([]) // start with no partner fields by default
+  const [preferredHole, setPreferredHole] = useState('auto')
 
   const [groups, setGroups] = useState([])
   const [profiles, setProfiles] = useState({})
@@ -150,28 +153,51 @@ export default function App() {
     const nameSet = new Set(uniqueByCanonical.map(p => canonicalName(p.name)))
     const existing = findGroupsWithNames(nameSet)
 
-    // Individual signup
+    // Determine target hole (auto or chosen)
+    const holeCount = 9
+    let targetHole = null
+    if (preferredHole === 'auto') {
+      // auto assign: choose hole based on current groups count (round-robin)
+      targetHole = (groups.length % holeCount) + 1
+    } else {
+      targetHole = parseInt(preferredHole, 10)
+      if (isNaN(targetHole) || targetHole < 1 || targetHole > holeCount) targetHole = (groups.length % holeCount) + 1
+    }
+
+    // Helper: groups on a hole
+    const groupsOnHole = groups
+      .map((g, i) => ({ ...g, hole: (i % holeCount) + 1, index: i }))
+      .filter(g => g.hole === targetHole)
+
+    // If individual signup
     if (uniqueByCanonical.length === 1) {
       const player = uniqueByCanonical[0]
       const already = groups.some(g => g.players.some(p => canonicalName(p.name) === canonicalName(player.name)))
       if (already) return alert(`${player.name} is already signed up`)
 
-      // find first group with less than 4 players
-      const idx = groups.findIndex(g => g.players.length < 4)
-      if (idx !== -1) {
-        const updated = groups.slice()
-        updated[idx] = { ...updated[idx], players: [...updated[idx].players, player] }
-        setGroups(updated)
-      } else {
+      // place into first group on the chosen hole with space
+      let placed = false
+      for (const g of groupsOnHole) {
+        if (g.players.length < 4) {
+          const updated = groups.slice()
+          updated[g.index] = { ...updated[g.index], players: [...updated[g.index].players, player] }
+          setGroups(updated)
+          placed = true
+          break
+        }
+      }
+
+      if (!placed) {
+        // create new group assigned to target hole (will appear in round-robin mapping)
         const id = Date.now()
         setGroups([{ id, players: [player] }, ...groups])
       }
 
-      // save profile
       addOrUpdateProfile(player.name, player.email)
       setPrimaryName('')
       setPrimaryEmail('')
       setPartners([])
+      setPreferredHole('auto')
       return
     }
 
@@ -183,6 +209,7 @@ export default function App() {
         setPrimaryName('')
         setPrimaryEmail('')
         setPartners([])
+        setPreferredHole('auto')
         return alert('Those players are already grouped together')
       }
     }
@@ -208,17 +235,21 @@ export default function App() {
       setPrimaryName('')
       setPrimaryEmail('')
       setPartners([])
+      setPreferredHole('auto')
       return
     }
 
     // No existing groups: create new group
     if (uniqueByCanonical.length <= 4) {
       const id = Date.now()
+      // create new group; to bias it to the target hole we insert at appropriate position
+      // Simpler: prepend so new group appears first; hole assignment is based on index modulo holeCount
       setGroups([{ id, players: uniqueByCanonical }, ...groups])
       uniqueByCanonical.forEach(p => addOrUpdateProfile(p.name, p.email))
       setPrimaryName('')
       setPrimaryEmail('')
       setPartners([])
+      setPreferredHole('auto')
       return
     }
 
@@ -227,6 +258,7 @@ export default function App() {
 
   function removePlayer(groupId, player) {
     if (locked && !isAdmin) return alert('Cannot remove players while groups are locked (Sunday 3pm ET → Tuesday 3pm ET).')
+    if (!confirm(`Remove ${player.name} from their group?`)) return
     const updated = groups
       .map(g => {
         if (g.id !== groupId) return g
@@ -267,8 +299,12 @@ export default function App() {
     if (profiles[cn]) updatePartner(index, 'email', profiles[cn].email || '')
   }
 
+  if (showAdminPanel) {
+    return <AdminPanel profiles={profiles} groups={groups} onClose={() => setShowAdminPanel(false)} onSaveGroups={setGroups} />
+  }
+
   return (
-    <div className="container">
+    <div className="container se-brand">
       <header>
         <h1>Golf League Signups</h1>
         <p>Sign up with first and last name and an email. Groups capped at 4 players. Admins can manage locked weeks.</p>
@@ -308,11 +344,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Add player option below initial player name */}
-              <div style={{marginTop:8}}>
-                <button type="button" onClick={addPartnerField} disabled={partners.length >= 3 || (locked && !isAdmin)}>＋ Add player</button>
-              </div>
-
               {/* Partner fields (appear only when added) */}
               <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:8}}>
                 {partners.map((p, idx) => (
@@ -337,7 +368,25 @@ export default function App() {
                     <button type="button" onClick={() => removePartnerField(idx)} disabled={locked && !isAdmin} aria-label="Remove partner">−</button>
                   </div>
                 ))}
+
+                {/* Add player option placed after partner fields so it moves down */}
+                <div>
+                  <button type="button" onClick={addPartnerField} disabled={partners.length >= 3 || (locked && !isAdmin)}>＋ Add player</button>
+                </div>
+
               </div>
+
+              {/* Hole selection */}
+              <div style={{marginTop:8}}>
+                <label style={{fontSize:12,color:'var(--muted)'}}>Preferred hole (optional): </label>
+                <select value={preferredHole} onChange={e => setPreferredHole(e.target.value)} disabled={locked && !isAdmin}>
+                  <option value="auto">Auto assign</option>
+                  {Array.from({ length: 9 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>{`Hole ${n}`}</option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
             {/* Sign Up button to the right of the player(s) */}
@@ -359,7 +408,7 @@ export default function App() {
 
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginTop:12}}>
             {Array.from({ length: holeCount }, (_, i) => i + 1).map(holeNum => (
-              <div key={holeNum} style={{padding:12,borderRadius:8,background:'rgba(255,255,255,0.02)'}}>
+              <div key={holeNum} style={{padding:12,borderRadius:8,background:'var(--hole-bg)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <strong>Hole {holeNum}</strong>
                   <small style={{color:'var(--muted)'}}>{holeMap[holeNum].length} group(s)</small>
@@ -369,7 +418,7 @@ export default function App() {
                   <p className="empty" style={{marginTop:8}}>— empty —</p>
                 ) : (
                   holeMap[holeNum].map((g, idx) => (
-                    <div key={g.id} style={{marginTop:8,padding:8,borderRadius:6,background:'linear-gradient(180deg,rgba(255,255,255,0.01),transparent)'}}>
+                    <div key={g.id} style={{marginTop:8,padding:8,borderRadius:6,background:'var(--card)'}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                         <div>
                           <strong>{String.fromCharCode(65 + idx)}</strong>
@@ -406,13 +455,17 @@ export default function App() {
       </main>
 
       <footer style={{marginTop:18}}>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between'}}>
           <form onSubmit={handleAdminLogin} style={{display:'flex',gap:8,alignItems:'center'}}>
             <input placeholder="Admin full name (login)" value={currentAdmin} onChange={e => setCurrentAdmin(e.target.value)} />
             <button type="submit">Admin Login</button>
           </form>
-          <div style={{marginLeft:12}}>
+
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
             {currentAdmin && <small>Admin signed in as <strong>{currentAdmin}</strong>{isAdmin ? ' (admin)' : ' (not admin)'}</small>}
+            {isAdmin && (
+              <button onClick={() => setShowAdminPanel(true)}>Open Admin Panel</button>
+            )}
           </div>
         </div>
 
