@@ -14,7 +14,7 @@ function PinSetup({ onSet }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (pin.length < 4) { setErr('PIN must be at least 4 characters.'); return }
+    if (pin.length < 6) { setErr('PIN must be at least 6 characters.'); return }
     if (pin !== confirm) { setErr('PINs do not match.'); return }
     setAdminPin(pin)
     onSet()

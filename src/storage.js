@@ -168,7 +168,7 @@ export function getCurrentWeekKey() {
  */
 export function addSignupToWeek({ name, email }) {
   const weekKey = getCurrentWeekKey()
-  if (!weekKey) return { ok: false, reason: 'No week is currently open. Ask an admin to open a new week.' }
+  if (!weekKey) return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
 
   const weeks = getWeeks()
   if (!weeks[weekKey]) return { ok: false, reason: 'Week record not found.' }

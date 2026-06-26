@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { addSignupToWeek, getCurrentWeekKey, getWeek } from './storage'
+import { addSignupToWeek, getCurrentWeekKey, getWeek, weekKeyToLabel } from './storage'
 
 export default function SignupForm({ onSignedUp }) {
   const [name, setName]   = useState('')
@@ -31,7 +31,7 @@ export default function SignupForm({ onSignedUp }) {
       ) : (
         <>
           <p className="week-open-notice">
-            Signing up for <strong>{weekKey}</strong>
+            Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
           </p>
           <form onSubmit={handleSubmit} className="form">
             <input
