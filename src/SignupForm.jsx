@@ -181,7 +181,6 @@ export default function SignupForm({ onSignedUp }) {
 
             <div className="additional-player-block">
               <div className="additional-player-header">
-                <p className="muted">Optional grouped players</p>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -190,6 +189,7 @@ export default function SignupForm({ onSignedUp }) {
                 >
                   Add Additional Player
                 </button>
+                <p className="muted">Optional grouped players</p>
               </div>
               {Array.from({ length: additionalCount }, (_, i) => (
                 <div key={i} className="additional-player-row">

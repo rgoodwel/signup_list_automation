@@ -40,9 +40,10 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .week-closed-notice{color:var(--muted);margin:0 0 6px;font-style:italic;font-size:15px}
 .reopen-notice{color:var(--muted);font-size:13px;margin:0}
 .additional-player-block{padding:12px;border:1px solid var(--border);border-radius:10px;background:#faf8f3}
-.additional-player-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.additional-player-header{display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.additional-player-header .muted{margin:0}
 .additional-player-row{display:flex;gap:8px;align-items:center;margin-top:8px}
-.holes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.holes-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .hole-card{padding:12px;border:1px solid var(--border);border-radius:10px;background:#fff;min-height:160px}
 .hole-card h3{margin:0 0 4px;font-size:15px;color:#15324d}
 .hole-card--full{border-color:rgba(178,74,58,0.6)}
@@ -105,3 +106,11 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 /* ── Legacy ── */
 .empty{color:var(--muted);margin-top:4px}
 footer{margin-top:24px;color:var(--muted)}
+
+@media (max-width: 900px){
+  .holes-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media (max-width: 620px){
+  .holes-grid{grid-template-columns:1fr}
+}
