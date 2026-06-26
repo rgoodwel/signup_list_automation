@@ -15,6 +15,10 @@ function PinSetup({ onSet }) {
   function handleSubmit(e) {
     e.preventDefault()
     if (pin.length < 6) { setErr('PIN must be at least 6 characters.'); return }
+    if (!/[a-zA-Z]/.test(pin) || !/[0-9]/.test(pin)) {
+      setErr('PIN must contain at least one letter and one number.')
+      return
+    }
     if (pin !== confirm) { setErr('PINs do not match.'); return }
     setAdminPin(pin)
     onSet()
@@ -23,7 +27,7 @@ function PinSetup({ onSet }) {
   return (
     <div className="pin-gate">
       <h2>Set Admin PIN</h2>
-      <p className="muted">Choose a PIN to protect the admin area. You will need it to log in next time.</p>
+      <p className="muted">Choose a PIN to protect the admin area (min 6 characters, must include a letter and a number).</p>
       <form onSubmit={handleSubmit} className="pin-form">
         <input
           type="password"

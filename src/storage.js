@@ -94,42 +94,48 @@ export function isInSignupWindow(now = new Date()) {
 /**
  * Returns a Date representing the next time signups will open (Tue 3pm ET).
  * Useful for the "check back" message shown to players during the locked window.
+ * Only call this when isInSignupWindow() returns false.
  */
 export function getNextWindowOpenDate(now = new Date()) {
   const p = getEasternParts(now)
-  // Calculate how many days until the next Tuesday
-  // dayOfWeek: 0=Sun,1=Mon,2=Tue,...
-  // If today is Sun after 3pm → 2 days to next Tue
-  // If today is Mon → 1 day to next Tue
-  // If today is Tue before 3pm → 0 days (today)
+  // Days until the next Tuesday:
+  // Sun(0) after 3pm → +2, Mon(1) → +1, Tue(2) before 3pm → +0
+  // (Tue after 3pm is in the open window and won't reach this branch in normal use)
   let daysUntilTue
-  if (p.dayOfWeek === 0) daysUntilTue = 2        // Sun → +2
-  else if (p.dayOfWeek === 1) daysUntilTue = 1   // Mon → +1
-  else daysUntilTue = 0                           // Tue before 3pm → today
+  if (p.dayOfWeek === 0) daysUntilTue = 2
+  else if (p.dayOfWeek === 1) daysUntilTue = 1
+  else daysUntilTue = 0 // Tue before 3pm → opens today
 
   // Build a UTC timestamp for that Tuesday at 15:00 Eastern.
-  // We do this by creating a local-midnight Date in ET, then offsetting.
-  // Simplest portable approach: use the Intl offset trick.
-  const targetDate = new Date(now)
-  targetDate.setDate(targetDate.getDate() + daysUntilTue)
-
-  // Format the target date as YYYY-MM-DD in ET and append T15:00 ET
-  const etFmt = new Intl.DateTimeFormat('en-CA', {
+  // We determine the ET→UTC offset by formatting a reference UTC timestamp in
+  // America/New_York and comparing the two representations numerically.
+  const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
   })
-  const [y, m, d] = etFmt.format(targetDate).split('-').map(Number)
 
-  // Create a Date that represents that day at 15:00 ET using the offset approach:
-  // Get the UTC offset for ET on that date by formatting a known UTC midnight.
-  const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
-  const etMidnightStr = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hour12: false,
-  }).formatToParts(midnight)
-  const etHour = parseInt(etMidnightStr.find(p => p.type === 'hour').value, 10) % 24
-  const utcOffsetHours = etHour === 0 ? 0 : (24 - etHour) // hours behind UTC (4 or 5)
-  const targetUTC = Date.UTC(y, m - 1, d, 15 + utcOffsetHours, 0, 0)
-  return new Date(targetUTC)
+  // Target date: now + daysUntilTue, expressed as a YYYY-MM-DD in ET
+  const scratch = new Date(now)
+  scratch.setDate(scratch.getDate() + daysUntilTue)
+  const tParts = Object.fromEntries(fmt.formatToParts(scratch).map(pt => [pt.type, pt.value]))
+  const ty = parseInt(tParts.year, 10)
+  const tm = parseInt(tParts.month, 10)
+  const td = parseInt(tParts.day, 10)
+
+  // Use a reference point (noon UTC on the target day) to measure the ET offset
+  const refUTC = new Date(Date.UTC(ty, tm - 1, td, 12, 0, 0))
+  const refParts = Object.fromEntries(fmt.formatToParts(refUTC).map(pt => [pt.type, pt.value]))
+  const refEtAsUTC = Date.UTC(
+    parseInt(refParts.year, 10), parseInt(refParts.month, 10) - 1, parseInt(refParts.day, 10),
+    parseInt(refParts.hour, 10) % 24, parseInt(refParts.minute, 10), parseInt(refParts.second, 10),
+  )
+  // offsetMs is how many ms UTC is ahead of ET (positive for ET which is behind UTC)
+  const offsetMs = refUTC.getTime() - refEtAsUTC
+
+  // Tuesday 15:00 ET = Date.UTC(ty, tm-1, td, 15) + offsetMs
+  return new Date(Date.UTC(ty, tm - 1, td, 15, 0, 0) + offsetMs)
 }
 
 /**
