@@ -30,6 +30,7 @@ export default function SignupForm({ onSignedUp }) {
   const [email, setEmail] = useState('')
   const [hole, setHole] = useState('1')
   const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
+  const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text }
   const [, forceUpdate]   = useState(0)    // used to re-check window on interval
 
@@ -54,12 +55,18 @@ export default function SignupForm({ onSignedUp }) {
   function handleSubmit(e) {
     e.preventDefault()
     if (!name.trim() || !email.trim()) return
-    const result = addSignupToWeek({ name, email, hole, additionalPlayers })
+    const result = addSignupToWeek({
+      name,
+      email,
+      hole,
+      additionalPlayers: additionalPlayers.slice(0, additionalCount),
+    })
     if (result.ok) {
       setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You're signed up.` })
       setName('')
       setEmail('')
       setAdditionalPlayers(['', '', ''])
+      setAdditionalCount(0)
       if (onSignedUp) onSignedUp()
     } else {
       setMsg({ type: 'error', text: result.reason })
@@ -73,6 +80,19 @@ export default function SignupForm({ onSignedUp }) {
       return next
     })
     setMsg(null)
+  }
+
+  function addAdditionalPlayerField() {
+    setAdditionalCount(count => Math.min(3, count + 1))
+  }
+
+  function removeAdditionalPlayerField(index) {
+    setAdditionalPlayers(prev => {
+      const next = [...prev]
+      next[index] = ''
+      return next
+    })
+    setAdditionalCount(count => Math.max(0, count - 1))
   }
 
   function handleRemove(holeKey, player) {
@@ -131,39 +151,63 @@ export default function SignupForm({ onSignedUp }) {
           <p className="week-open-notice">
             Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
           </p>
-          <form onSubmit={handleSubmit} className="form">
-            <input
-              placeholder="Name"
-              value={name}
-              onChange={e => { setName(e.target.value); setMsg(null) }}
-              required
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setMsg(null) }}
-              required
-            />
-            <select
-              value={hole}
-              onChange={e => { setHole(e.target.value); setMsg(null) }}
-              required
-            >
-              {holeKeys.map(holeKey => (
-                <option key={holeKey} value={holeKey}>
-                  Hole {holeKey} ({holes[holeKey].length}/{HOLE_CAPACITY})
-                </option>
-              ))}
-            </select>
-            {additionalPlayers.map((playerName, i) => (
+          <form onSubmit={handleSubmit} className="signup-form">
+            <div className="form">
               <input
-                key={i}
-                placeholder={`Additional Player ${i + 1} (optional)`}
-                value={playerName}
-                onChange={e => updateAdditionalPlayer(i, e.target.value)}
+                placeholder="Name"
+                value={name}
+                onChange={e => { setName(e.target.value); setMsg(null) }}
+                required
               />
-            ))}
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => { setEmail(e.target.value); setMsg(null) }}
+                required
+              />
+              <select
+                value={hole}
+                onChange={e => { setHole(e.target.value); setMsg(null) }}
+                required
+              >
+                {holeKeys.map(holeKey => (
+                  <option key={holeKey} value={holeKey}>
+                    Hole {holeKey} ({holes[holeKey].length}/{HOLE_CAPACITY})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="additional-player-block">
+              <div className="additional-player-header">
+                <p className="muted">Optional grouped players</p>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={addAdditionalPlayerField}
+                  disabled={additionalCount >= 3}
+                >
+                  Add Additional Player
+                </button>
+              </div>
+              {Array.from({ length: additionalCount }, (_, i) => (
+                <div key={i} className="additional-player-row">
+                  <input
+                    placeholder={`Additional Player ${i + 1}`}
+                    value={additionalPlayers[i]}
+                    onChange={e => updateAdditionalPlayer(i, e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn-remove-player"
+                    onClick={() => removeAdditionalPlayerField(i)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
             <button type="submit">Sign Up</button>
           </form>
           <div className="holes-grid">

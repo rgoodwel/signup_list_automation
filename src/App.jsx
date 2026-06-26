@@ -24,8 +24,8 @@ export default function App() {
       <header>
         <div className="header-row">
           <div>
-            <h1>Signup List</h1>
-            <p className="muted">Sign up for this week's session below.</p>
+            <h1>SE Church Signup List</h1>
+            <p className="muted">Sign up for this week’s round below.</p>
           </div>
           <button
             className="btn btn-ghost"
