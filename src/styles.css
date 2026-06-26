@@ -3,22 +3,89 @@
   --card:#0b1220;
   --muted:#94a3b8;
   --accent:#60a5fa;
+  --danger:#f87171;
+  --success:#4ade80;
+  --border:rgba(255,255,255,0.07);
 }
 
 *{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial; margin:0; background:linear-gradient(180deg,var(--bg),#071021); color:#e6eef8}
-.container{max-width:760px;margin:40px auto;padding:24px;background:rgba(255,255,255,0.02);border-radius:12px}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial; margin:0; background:linear-gradient(180deg,var(--bg),#071021); color:#e6eef8; min-height:100vh}
+.container{max-width:900px;margin:40px auto;padding:24px;background:rgba(255,255,255,0.02);border-radius:12px}
+
+/* ── Header ── */
+.header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 header h1{margin:0 0 4px}
-header p{margin:0;color:var(--muted)}
-.form{display:flex;gap:8px;margin:16px 0}
-.form input{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit}
-.form button{padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#06283a;font-weight:600}
-.list-header{display:flex;align-items:center;justify-content:space-between}
-.list{margin-top:12px}
-.list ul{list-style:none;padding:0;margin:0}
-.list li{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);margin-bottom:8px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent)}
-.list .info small{display:block;color:var(--muted)}
-.remove{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:6px;color:var(--muted)}
-.clear{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:6px;color:var(--muted)}
-.empty{color:var(--muted);margin-top:12px}
-footer{margin-top:16px;color:var(--muted)}
+.muted{color:var(--muted);margin:0}
+
+/* ── Buttons ── */
+.btn{padding:9px 16px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:14px;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--accent);color:#06283a}
+.btn-secondary{background:rgba(255,255,255,0.07);color:#e6eef8;border:1px solid var(--border)}
+.btn-danger{background:var(--danger);color:#450a0a}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+
+/* ── Signup form ── */
+.form{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+.form input{flex:1;min-width:140px;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.02);color:inherit}
+.form button{padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#06283a;font-weight:600;cursor:pointer}
+.form-msg{margin-top:8px;padding:8px 12px;border-radius:8px;font-size:14px}
+.form-msg--success{background:rgba(74,222,128,0.1);color:var(--success)}
+.form-msg--error{background:rgba(248,113,113,0.1);color:var(--danger)}
+.week-open-notice{color:var(--muted);font-size:14px;margin:0 0 8px}
+.week-closed-notice{color:var(--muted);margin:16px 0;font-style:italic}
+
+/* ── Panel ── */
+.panel{margin-top:20px;padding:20px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px}
+.panel h2{margin:0 0 12px;font-size:17px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.panel-header h2{margin:0}
+.panel-actions{display:flex;gap:8px}
+
+/* ── Tabs ── */
+.tab-bar{display:flex;gap:4px;flex-wrap:wrap;margin-top:16px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.tab-btn{background:transparent;border:1px solid transparent;border-radius:8px 8px 0 0;padding:8px 16px;color:var(--muted);cursor:pointer;font-size:14px;font-weight:500;transition:all .15s}
+.tab-btn:hover{color:#e6eef8;background:rgba(255,255,255,0.04)}
+.tab-btn--active{color:var(--accent);border-color:var(--border);border-bottom-color:transparent;background:rgba(255,255,255,0.04)}
+.tab-btn--logout{margin-left:auto;color:var(--danger)}
+
+/* ── Badge ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.05em}
+.badge-green{background:rgba(74,222,128,0.15);color:var(--success)}
+
+/* ── Tables ── */
+.table-scroll{overflow-x:auto}
+.data-table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+.data-table th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600;white-space:nowrap}
+.data-table td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.data-table tbody tr:hover{background:rgba(255,255,255,0.03)}
+.data-table tbody tr:nth-child(even){background:rgba(255,255,255,0.01)}
+.sortable{cursor:pointer;user-select:none}
+.sortable:hover{color:#e6eef8}
+.sort-icon{margin-left:4px;font-size:12px;opacity:.6}
+.week-label{margin:0 0 12px;font-size:14px}
+
+/* ── Filter input ── */
+.filter-input{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.02);color:inherit;font-size:14px;min-width:220px}
+
+/* ── Stat cards ── */
+.stat-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-card{flex:1;min-width:120px;padding:16px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;text-align:center}
+.stat-value{display:block;font-size:28px;font-weight:700;color:var(--accent)}
+.stat-label{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ── Chart ── */
+.chart-wrap{margin-top:8px}
+
+/* ── Export ── */
+.export-row{display:flex;gap:12px;flex-wrap:wrap}
+
+/* ── PIN gate ── */
+.pin-gate{max-width:380px;margin:24px auto;padding:28px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;text-align:center}
+.pin-gate h2{margin:0 0 8px}
+.pin-form{display:flex;flex-direction:column;gap:10px;margin:16px 0 0}
+.pin-form input{padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.02);color:inherit;font-size:15px;text-align:center;letter-spacing:.2em}
+
+/* ── Legacy ── */
+.empty{color:var(--muted);margin-top:4px}
+footer{margin-top:24px;color:var(--muted)}
