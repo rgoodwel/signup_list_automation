@@ -63,7 +63,7 @@ function ensureWeekHasHoles(week) {
     ]
     for (const member of members) {
       const hole = normalizeHole(signup.hole) || String(Math.floor(slotIndex / HOLE_CAPACITY) + 1)
-      const holeKey = normalizeHole(hole) || String(HOLE_COUNT)
+      const holeKey = hole || String(HOLE_COUNT)
       if (!week.holes[holeKey]) week.holes[holeKey] = []
       if (week.holes[holeKey].length < HOLE_CAPACITY) {
         week.holes[holeKey].push({
@@ -219,9 +219,8 @@ export function getNextWindowOpenDate(now = new Date()) {
  */
 function windowWeekKey(now = new Date()) {
   const p = getEasternParts(now)
-  // Days until Sunday: 0=Sun→0, 1=Mon→6 (shouldn't be called when locked)
-  // 2=Tue→4 days ahead, 3=Wed→3, 4=Thu→2, 5=Fri→1, 6=Sat→0 (same week Sun already passed — use next Sun)
-  // Actually: Sun=0→already Sunday; Tue=2→+4; Wed=3→+3; Thu=4→+2; Fri=5→+1; Sat=6→+1 (next Sun)
+  // Days until the Sunday that ends the active signup window.
+  // Sun=0, Mon=6 (only used when window is open), Tue=4, Wed=3, Thu=2, Fri=1, Sat=1.
   const daysMap = [0, 6, 4, 3, 2, 1, 1]
   const daysToSunday = daysMap[p.dayOfWeek]
   const sunday = new Date(now)
