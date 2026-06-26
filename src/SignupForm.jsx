@@ -26,13 +26,36 @@ function formatReopenTime(date) {
   })
 }
 
+/**
+ * Centered modal popup used for all error/warning messages.
+ * `popup` — { title, message, hint? } | null
+ */
+function AlertModal({ popup, onClose }) {
+  if (!popup) return null
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <p className="modal-title">⚠️ {popup.title}</p>
+        <div className="modal-body">
+          <p style={{ margin: 0 }}>{popup.message}</p>
+          {popup.hint && <p className="modal-hint">{popup.hint}</p>}
+        </div>
+        <div className="modal-actions">
+          <button className="modal-dismiss" onClick={onClose}>OK</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SignupForm({ onSignedUp }) {
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
   const [hole, setHole] = useState('1')
   const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
   const [additionalCount, setAdditionalCount] = useState(0)
-  const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text }
+  const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text } — success banner only
+  const [popup, setPopup] = useState(null) // { title, message, hint? } — error modal
   const [, forceUpdate]   = useState(0)    // used to re-check window on interval
 
   // Auto-open the week when the window is active; re-check every minute
@@ -53,19 +76,39 @@ export default function SignupForm({ onSignedUp }) {
   const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
   const holes = week?.holes || Object.fromEntries(holeKeys.map(k => [k, []]))
 
+  function showError(title, message, hint) {
+    setPopup({ title, message, hint: hint || null })
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
-    if (!name.trim() || !email.trim()) return
+
+    if (!name.trim() || !email.trim()) {
+      showError(
+        'Missing Information',
+        'Please fill in both your full name and email address before signing up.',
+        'Your name must be at least a first and last name (e.g., "Jane Smith").',
+      )
+      return
+    }
 
     // Client-side full-name validation
     if (!isFullName(name)) {
-      setMsg({ type: 'error', text: 'Please enter your first and last name (e.g., "Jane Smith").' })
+      showError(
+        'Full Name Required',
+        `"${name.trim()}" doesn't look like a full name.`,
+        'Please enter both your first and last name (e.g., "Jane Smith").',
+      )
       return
     }
     for (let i = 0; i < additionalCount; i++) {
       const p = additionalPlayers[i].trim()
       if (p && !isFullName(p)) {
-        setMsg({ type: 'error', text: `Additional Player ${i + 1} must include a first and last name.` })
+        showError(
+          'Full Name Required',
+          `Additional Player ${i + 1} — "${p}" doesn't look like a full name.`,
+          'Each additional player must have a first and last name (e.g., "John Smith").',
+        )
         return
       }
     }
@@ -84,7 +127,32 @@ export default function SignupForm({ onSignedUp }) {
       setAdditionalCount(0)
       if (onSignedUp) onSignedUp()
     } else {
-      setMsg({ type: 'error', text: result.reason })
+      // Map storage reasons to user-friendly titles and hints
+      const reason = result.reason || 'Something went wrong. Please try again.'
+      let title = 'Cannot Complete Signup'
+      let hint = null
+
+      if (reason.includes("already signed up")) {
+        title = 'Already Signed Up'
+        hint = 'You can only sign up once per week. If you need to change your hole or group, contact an administrator.'
+      } else if (reason.includes("does not have enough space")) {
+        title = 'Hole Full'
+        hint = 'Choose a different hole with available space, or reduce the number of additional players in your group.'
+      } else if (reason.includes("already signed up as a guest")) {
+        title = 'Duplicate Player Detected'
+        hint = 'You can use the drag-and-drop feature on the hole cards below to move or reassign players manually.'
+      } else if (reason.includes("is already signed up on Hole")) {
+        title = 'Duplicate Additional Player'
+        hint = 'Remove that person from your additional players list — they are already signed up on another hole and need to be managed there.'
+      } else if (reason.includes("first and last name")) {
+        title = 'Full Name Required'
+        hint = 'Enter both first and last names for every player (e.g., "Jane Smith").'
+      } else if (reason.includes("closed") || reason.includes("not found")) {
+        title = 'Signups Unavailable'
+        hint = 'Signups are only open Tuesday 3 PM – Sunday 3 PM Eastern. Please check back during that window.'
+      }
+
+      showError(title, reason, hint)
     }
   }
 
@@ -94,7 +162,6 @@ export default function SignupForm({ onSignedUp }) {
       next[index] = value
       return next
     })
-    setMsg(null)
   }
 
   function addAdditionalPlayerField() {
@@ -119,7 +186,7 @@ export default function SignupForm({ onSignedUp }) {
       if (onSignedUp) onSignedUp()
       forceUpdate(n => n + 1)
     } else {
-      setMsg({ type: 'error', text: result.reason })
+      showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact an administrator.')
     }
   }
 
@@ -143,15 +210,22 @@ export default function SignupForm({ onSignedUp }) {
         if (onSignedUp) onSignedUp()
         forceUpdate(n => n + 1)
       } else {
-        setMsg({ type: 'error', text: result.reason })
+        showError(
+          'Cannot Move Player',
+          result.reason,
+          result.reason.includes('full')
+            ? 'Try moving the player to a hole that has an open spot.'
+            : 'Try refreshing the page and moving again.',
+        )
       }
     } catch {
-      setMsg({ type: 'error', text: 'Could not move player.' })
+      showError('Cannot Move Player', 'An unexpected error occurred while moving the player.', 'Try refreshing the page and dragging again.')
     }
   }
 
   return (
     <section>
+      <AlertModal popup={popup} onClose={() => setPopup(null)} />
       {isClosed ? (
         <div className="closed-notice">
           <p className="week-closed-notice">🔒 Signups are currently closed.</p>
