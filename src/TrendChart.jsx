@@ -39,21 +39,21 @@ export default function TrendChart({ weeks, players }) {
         <div className="chart-wrap">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartData} margin={{ top: 4, right: 12, left: -16, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(20,40,60,0.14)" />
               <XAxis
                 dataKey="label"
-                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                tick={{ fill: '#6a707a', fontSize: 11 }}
                 angle={-40}
                 textAnchor="end"
                 interval={0}
               />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} allowDecimals={false} />
+              <YAxis tick={{ fill: '#6a707a', fontSize: 11 }} allowDecimals={false} />
               <Tooltip
-                contentStyle={{ background: '#0b1220', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}
-                labelStyle={{ color: '#60a5fa' }}
-                itemStyle={{ color: '#e6eef8' }}
+                contentStyle={{ background: '#ffffff', border: '1px solid rgba(20,40,60,0.14)', borderRadius: 8 }}
+                labelStyle={{ color: '#1f3d5c' }}
+                itemStyle={{ color: '#1b2430' }}
               />
-              <Bar dataKey="signups" fill="#60a5fa" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="signups" fill="#1f3d5c" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
