@@ -50,6 +50,12 @@ function AlertModal({ popup, onClose }) {
   )
 }
 
+/** Returns the display label for a hole card / dropdown option. */
+function holeLabel(holeKey, bGroupsUnlocked) {
+  if (holeKey.endsWith('B')) return `Hole ${holeKey}`
+  return bGroupsUnlocked ? `Hole ${holeKey}A` : `Hole ${holeKey}`
+}
+
 export default function SignupForm({ onSignedUp }) {
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
@@ -272,7 +278,7 @@ export default function SignupForm({ onSignedUp }) {
                 <optgroup label="Group A">
                   {holeKeys.map(holeKey => (
                     <option key={holeKey} value={holeKey}>
-                      {bUnlocked ? `Hole ${holeKey}A` : `Hole ${holeKey}`} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
+                      {holeLabel(holeKey, bUnlocked)} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
                     </option>
                   ))}
                 </optgroup>
@@ -327,7 +333,7 @@ export default function SignupForm({ onSignedUp }) {
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => handleDrop(e, holeKey)}
               >
-                <h3>{bUnlocked ? `Hole ${holeKey}A` : `Hole ${holeKey}`}</h3>
+                <h3>{holeLabel(holeKey, bUnlocked)}</h3>
                 <p className="hole-count">{(holes[holeKey] || []).length}/{HOLE_CAPACITY}</p>
                 {(holes[holeKey] || []).length === 0 ? (
                   <p className="empty">No players.</p>
