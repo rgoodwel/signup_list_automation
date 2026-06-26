@@ -44,6 +44,127 @@ export function compareWeekKeys(a, b) {
   return ay !== by ? ay - by : aw - bw
 }
 
+// ── Signup window schedule (Tue 3pm ET → Sun 3pm ET) ────────────────────────
+
+/**
+ * Return the current date/time broken into parts in the America/New_York
+ * timezone (handles EST/EDT automatically via the browser's Intl engine).
+ */
+function getEasternParts(now = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false,
+    weekday: 'narrow', // S M T W T F S
+  })
+  const parts = Object.fromEntries(fmt.formatToParts(now).map(p => [p.type, p.value]))
+  return {
+    // weekday narrow: Sun→'S', Mon→'M', Tue→'T', Wed→'W', Thu→'T', Fri→'F', Sat→'S'
+    // Use numeric day-of-week instead for reliability
+    dayOfWeek: new Date(
+      parseInt(parts.year),
+      parseInt(parts.month) - 1,
+      parseInt(parts.day),
+    ).getDay(), // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
+    hour: parseInt(parts.hour, 10) % 24, // Intl hour12:false can return '24'
+    minute: parseInt(parts.minute, 10),
+    year: parseInt(parts.year, 10),
+    month: parseInt(parts.month, 10),
+    day: parseInt(parts.day, 10),
+  }
+}
+
+/**
+ * Returns true when signups should be OPEN:
+ *   Tuesday 15:00 ET (inclusive) → Sunday 15:00 ET (exclusive)
+ * Returns false during the locked window:
+ *   Sunday 15:00 ET → Tuesday 15:00 ET
+ */
+export function isInSignupWindow(now = new Date()) {
+  const { dayOfWeek, hour } = getEasternParts(now)
+  // LOCKED: Sun after 3pm, all day Mon, Tue before 3pm
+  const locked =
+    (dayOfWeek === 0 && hour >= 15) ||   // Sunday ≥ 3pm ET
+    (dayOfWeek === 1) ||                  // Monday (all day)
+    (dayOfWeek === 2 && hour < 15)        // Tuesday < 3pm ET
+  return !locked
+}
+
+/**
+ * Returns a Date representing the next time signups will open (Tue 3pm ET).
+ * Useful for the "check back" message shown to players during the locked window.
+ */
+export function getNextWindowOpenDate(now = new Date()) {
+  const p = getEasternParts(now)
+  // Calculate how many days until the next Tuesday
+  // dayOfWeek: 0=Sun,1=Mon,2=Tue,...
+  // If today is Sun after 3pm → 2 days to next Tue
+  // If today is Mon → 1 day to next Tue
+  // If today is Tue before 3pm → 0 days (today)
+  let daysUntilTue
+  if (p.dayOfWeek === 0) daysUntilTue = 2        // Sun → +2
+  else if (p.dayOfWeek === 1) daysUntilTue = 1   // Mon → +1
+  else daysUntilTue = 0                           // Tue before 3pm → today
+
+  // Build a UTC timestamp for that Tuesday at 15:00 Eastern.
+  // We do this by creating a local-midnight Date in ET, then offsetting.
+  // Simplest portable approach: use the Intl offset trick.
+  const targetDate = new Date(now)
+  targetDate.setDate(targetDate.getDate() + daysUntilTue)
+
+  // Format the target date as YYYY-MM-DD in ET and append T15:00 ET
+  const etFmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  const [y, m, d] = etFmt.format(targetDate).split('-').map(Number)
+
+  // Create a Date that represents that day at 15:00 ET using the offset approach:
+  // Get the UTC offset for ET on that date by formatting a known UTC midnight.
+  const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
+  const etMidnightStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hour12: false,
+  }).formatToParts(midnight)
+  const etHour = parseInt(etMidnightStr.find(p => p.type === 'hour').value, 10) % 24
+  const utcOffsetHours = etHour === 0 ? 0 : (24 - etHour) // hours behind UTC (4 or 5)
+  const targetUTC = Date.UTC(y, m - 1, d, 15 + utcOffsetHours, 0, 0)
+  return new Date(targetUTC)
+}
+
+/**
+ * Return the ISO week key for the Sunday that ends the current signup window.
+ * When the window is open (Tue–Sun), the closing Sunday is within the same
+ * ISO week as Tuesday for most of the year.
+ */
+function windowWeekKey(now = new Date()) {
+  const p = getEasternParts(now)
+  // Days until Sunday: 0=Sun→0, 1=Mon→6 (shouldn't be called when locked)
+  // 2=Tue→4 days ahead, 3=Wed→3, 4=Thu→2, 5=Fri→1, 6=Sat→0 (same week Sun already passed — use next Sun)
+  // Actually: Sun=0→already Sunday; Tue=2→+4; Wed=3→+3; Thu=4→+2; Fri=5→+1; Sat=6→+1 (next Sun)
+  const daysMap = [0, 6, 4, 3, 2, 1, 1]
+  const daysToSunday = daysMap[p.dayOfWeek]
+  const sunday = new Date(now)
+  sunday.setDate(sunday.getDate() + daysToSunday)
+  return weekKeyFromDate(sunday)
+}
+
+/**
+ * If the signup window is currently open and no week is active (or the stored
+ * week was closed), automatically open a week for this window period.
+ * Returns the active weekKey (existing or newly opened).
+ */
+export function autoOpenWeekIfNeeded() {
+  if (!isInSignupWindow()) return null
+  const current = getCurrentWeekKey()
+  const weeks = getWeeks()
+  // If a week is already open, use it
+  if (current && weeks[current] && !weeks[current].closedAt) return current
+  // Open the week keyed to the Sunday that ends this window
+  const key = windowWeekKey()
+  return openWeek(key)
+}
+
 // ── Low-level read / write ──────────────────────────────────────────────────
 
 function read(key, fallback) {
@@ -238,3 +359,4 @@ export function computePlayerStats(player, allWeekKeys) {
 
   return { firstWeekKey, lastWeekKey, totalWeeks, currentStreak: streak }
 }
+

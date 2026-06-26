@@ -1,14 +1,47 @@
-import React, { useState } from 'react'
-import { addSignupToWeek, getCurrentWeekKey, getWeek, weekKeyToLabel } from './storage'
+import React, { useState, useEffect } from 'react'
+import {
+  addSignupToWeek,
+  getCurrentWeekKey,
+  getWeek,
+  weekKeyToLabel,
+  isInSignupWindow,
+  getNextWindowOpenDate,
+  autoOpenWeekIfNeeded,
+} from './storage'
+
+function formatReopenTime(date) {
+  return date.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  })
+}
 
 export default function SignupForm({ onSignedUp }) {
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
   const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text }
+  const [, forceUpdate]   = useState(0)    // used to re-check window on interval
 
-  const weekKey = getCurrentWeekKey()
-  const week    = weekKey ? getWeek(weekKey) : null
-  const isClosed = !weekKey || (week && week.closedAt)
+  // Auto-open the week when the window is active; re-check every minute
+  useEffect(() => {
+    autoOpenWeekIfNeeded()
+    const id = setInterval(() => {
+      autoOpenWeekIfNeeded()
+      forceUpdate(n => n + 1)
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const windowOpen = isInSignupWindow()
+  const weekKey    = getCurrentWeekKey()
+  const week       = weekKey ? getWeek(weekKey) : null
+  const isClosed   = !windowOpen || !weekKey || (week && week.closedAt)
+  const reopenDate = isClosed ? getNextWindowOpenDate() : null
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -27,7 +60,14 @@ export default function SignupForm({ onSignedUp }) {
   return (
     <section>
       {isClosed ? (
-        <p className="week-closed-notice">Signups are currently closed. Check back soon!</p>
+        <div className="closed-notice">
+          <p className="week-closed-notice">🔒 Signups are currently closed.</p>
+          {reopenDate && (
+            <p className="reopen-notice">
+              Signups open <strong>{formatReopenTime(reopenDate)}</strong>
+            </p>
+          )}
+        </div>
       ) : (
         <>
           <p className="week-open-notice">
@@ -55,3 +95,4 @@ export default function SignupForm({ onSignedUp }) {
     </section>
   )
 }
+

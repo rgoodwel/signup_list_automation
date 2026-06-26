@@ -33,7 +33,9 @@ header h1{margin:0 0 4px}
 .form-msg--success{background:rgba(74,222,128,0.1);color:var(--success)}
 .form-msg--error{background:rgba(248,113,113,0.1);color:var(--danger)}
 .week-open-notice{color:var(--muted);font-size:14px;margin:0 0 8px}
-.week-closed-notice{color:var(--muted);margin:16px 0;font-style:italic}
+.closed-notice{margin:16px 0}
+.week-closed-notice{color:var(--muted);margin:0 0 6px;font-style:italic;font-size:15px}
+.reopen-notice{color:var(--muted);font-size:13px;margin:0}
 
 /* ── Panel ── */
 .panel{margin-top:20px;padding:20px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px}
