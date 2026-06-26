@@ -1,46 +1,30 @@
 # Signup List Automation (Golf League)
 
-This React + Vite app implements a weekly golf-league signup system. It stores groups of players (names only) in browser localStorage and includes rules to form and manage groups for play across 9 holes.
+This React + Vite app implements a weekly golf-league signup system. It stores groups of players (names + emails) in browser localStorage and includes rules to form and manage groups for play across 9 holes.
 
-Key features implemented
+New/updated features
 
-- Enforced first and last name for every player entry.
-- Dynamic additional player fields (click the + to add up to 3 extra players). No comma-delimited lists.
-- Names-only entries. Each player is stored as a single string (first and last name).
-- Grouping logic:
-  - Groups are capped at 4 players.
-  - Individual signups are placed into the first existing group with space, otherwise a new group is created.
-  - Multi-player signups create or merge groups automatically. Merges are rejected if the result would exceed 4 players.
-  - Name matching is case-insensitive and whitespace-normalized.
-- Admins and permissions:
-  - A small list of admin names can be configured in the app (see `ADMIN_NAMES` in `src/App.jsx`). Admins are allowed to clear all groups and can edit groups when the week is locked.
-  - Admin sign-in is simply entering your full name in the top field — this is a lightweight client-side control intended for small leagues. Do not rely on it for strong security.
-- Weekly lock:
-  - Groups are locked starting Sunday 3:00 PM Eastern Time (America/New_York) for that week. While locked only admins may add/remove/clear groups.
-- Hole assignment:
-  - Groups are assigned to holes 1–9 in round-robin order. When the number of groups exceeds 9, groups begin to double up on holes (Group 10 -> Hole 1, Group 11 -> Hole 2, etc.).
+- No longer requires users to "set name" before signing up; general users can sign up anonymously (by entering name + email in the signup form).
+- Admin login moved to the bottom of the page — admins enter their full name (client-side) to get admin privileges (clear groups, edit during locked weeks).
+- Each player now provides an email (validated with a simple regex). The form enforces first + last name and a valid email for every player.
+- Profiles: saved name+email mapping stored in localStorage so future signups can use the browser datalist to quickly select existing names and autofill email.
+- Holes display: UI initially shows all 9 holes (1..9). Groups are assigned in round-robin order across holes. When more than 9 groups exist, holes receive multiple groups (A/B labels)
 
-How to use
+Storage keys
 
-1. Install dependencies
-
-   npm install
-
-2. Run locally
-
-   npm run dev
-
-3. Build for production
-
-   npm run build
-
-After build, upload the contents of `dist/` to an S3 bucket or use Amplify for CI/CD.
-
-Configuration notes
-
-- To change the admin users, edit `ADMIN_NAMES` near the top of `src/App.jsx`.
-- The week-lock uses the America/New_York timezone to determine Sunday 3:00 PM; the client checks this every minute while the app is open.
+- Groups: `signup_list_automation.groups_v3`
+- Profiles: `signup_list_automation.profiles_v1`
 
 Security note
 
-This app uses a simple client-side "admin name" check for convenience in small private leagues. If you need secure admin authentication, integrate a proper auth provider (Cognito, Auth0) and verify admin claims on a trusted server before allowing destructive actions like clearing groups.
+- The admin login is a light client-side convenience for small private leagues. For stronger security, integrate a proper authentication provider (Cognito, Auth0) and verify admin claims server-side.
+
+To run
+
+1. npm install
+2. npm run dev
+3. npm run build
+
+Deployment
+
+- Build artifacts appear in `dist/`. Upload to S3 or use Amplify for CI/CD.
