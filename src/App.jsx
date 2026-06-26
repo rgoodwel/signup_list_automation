@@ -205,10 +205,11 @@ export default function App() {
         }
       }
 
-      // If still not placed, create new group
+      // If still not placed, create new group and APPEND it, don't prepend
       if (!placed) {
         const id = Date.now()
-        setGroups([{ id, players: [player] }, ...groups])
+        const newGroup = { id, players: [player] }
+        setGroups([...groups, newGroup])
       }
 
       addOrUpdateProfile(player.name, player.email)
@@ -245,7 +246,7 @@ export default function App() {
       const mergedPlayers = Array.from(mergedMap.values())
       const remaining = groups.filter(g => !existing.includes(g))
       const id = Date.now()
-      setGroups([{ id, players: mergedPlayers }, ...remaining])
+      setGroups([...remaining, { id, players: mergedPlayers }])
 
       // save profiles
       mergedPlayers.forEach(p => addOrUpdateProfile(p.name, p.email))
@@ -257,10 +258,10 @@ export default function App() {
       return
     }
 
-    // No existing groups: create new group
+    // No existing groups: create new group - APPEND, don't prepend
     if (uniqueByCanonical.length <= 4) {
       const id = Date.now()
-      setGroups([{ id, players: uniqueByCanonical }, ...groups])
+      setGroups([...groups, { id, players: uniqueByCanonical }])
       uniqueByCanonical.forEach(p => addOrUpdateProfile(p.name, p.email))
       setPrimaryName('')
       setPrimaryEmail('')
@@ -389,9 +390,20 @@ export default function App() {
       }
     }
 
-    // If found a group with space, move there
+    // If found a group with space, move there directly (don't call handleGroupDrop recursively)
     if (targetGroupId) {
-      handleGroupDrop(e, targetGroupId)
+      const updated = groups.map(g => {
+        if (g.id === sourceGroupId) {
+          return { ...g, players: g.players.filter(p => canonicalName(p.name) !== canonicalName(playerName)) }
+        }
+        if (g.id === targetGroupId) {
+          return { ...g, players: [...g.players, playerToMove] }
+        }
+        return g
+      }).filter(g => g.players.length > 0)
+
+      setGroups(updated)
+      setDraggedPlayer(null)
       return
     }
 
@@ -405,7 +417,7 @@ export default function App() {
 
     const newGroupId = Date.now()
     const newGroup = { id: newGroupId, players: [playerToMove] }
-    setGroups([newGroup, ...updated])
+    setGroups([...updated, newGroup])
     setDraggedPlayer(null)
   }
 
