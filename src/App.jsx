@@ -58,6 +58,7 @@ export default function App() {
   const [groups, setGroups] = useState([])
   const [profiles, setProfiles] = useState({})
   const [locked, setLocked] = useState(isLockedByWeek())
+  const [draggedPlayer, setDraggedPlayer] = useState(null)
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -274,6 +275,63 @@ export default function App() {
     setGroups([])
   }
 
+  // Drag and drop handlers
+  function handlePlayerDragStart(e, groupId, player) {
+    setDraggedPlayer({ groupId, player })
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleGroupDragOver(e) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleGroupDrop(e, targetGroupId) {
+    e.preventDefault()
+    if (!draggedPlayer) return
+
+    const { groupId: sourceGroupId, player } = draggedPlayer
+
+    // Can't drop on same group
+    if (sourceGroupId === targetGroupId) {
+      setDraggedPlayer(null)
+      return
+    }
+
+    // Check if player already in target group
+    const targetGroup = groups.find(g => g.id === targetGroupId)
+    if (targetGroup && targetGroup.players.some(p => canonicalName(p.name) === canonicalName(player.name))) {
+      alert(`${player.name} is already in that group`)
+      setDraggedPlayer(null)
+      return
+    }
+
+    // Check if target group is full
+    if (targetGroup && targetGroup.players.length >= 4) {
+      alert('Target group is full (4 players max)')
+      setDraggedPlayer(null)
+      return
+    }
+
+    // Move player: remove from source, add to target
+    const updated = groups.map(g => {
+      if (g.id === sourceGroupId) {
+        return { ...g, players: g.players.filter(p => canonicalName(p.name) !== canonicalName(player.name)) }
+      }
+      if (g.id === targetGroupId) {
+        return { ...g, players: [...g.players, player] }
+      }
+      return g
+    }).filter(g => g.players.length > 0)
+
+    setGroups(updated)
+    setDraggedPlayer(null)
+  }
+
+  function handlePlayerDragEnd() {
+    setDraggedPlayer(null)
+  }
+
   // Hole assignment
   const holeCount = 9
   const groupsAssigned = groups.map((g, i) => ({ ...g, hole: (i % holeCount) + 1 }))
@@ -281,6 +339,9 @@ export default function App() {
   const holeMap = {}
   for (let i = 1; i <= holeCount; i++) holeMap[i] = []
   groupsAssigned.forEach((g, idx) => holeMap[g.hole].push({ ...g, index: idx }))
+
+  // Calculate total players
+  const totalPlayers = groups.reduce((sum, g) => sum + g.players.length, 0)
 
   // Build profiles list for datalist
   const profileList = Object.values(profiles)
@@ -382,7 +443,7 @@ export default function App() {
                 <select value={preferredHole} onChange={e => setPreferredHole(e.target.value)} disabled={locked && !isAdmin}>
                   <option value="auto">Auto assign</option>
                   {Array.from({ length: 9 }, (_, i) => i + 1).map(n => (
-                    <option key={n} value={n}>{`Hole ${n}`}</option>
+                    <option key={n} value={String(n)}>{`Hole ${n}`}</option>
                   ))}
                 </select>
               </div>
@@ -398,7 +459,7 @@ export default function App() {
 
         <section className="list" style={{marginTop:16}}>
           <div className="list-header">
-            <h2>Holes / Groups</h2>
+            <h2>Holes / Groups ({totalPlayers} players)</h2>
             <div>
               {isAdmin ? (
                 <button className="clear" onClick={clearAll}>Admin: Clear</button>
@@ -408,7 +469,11 @@ export default function App() {
 
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginTop:12}}>
             {Array.from({ length: holeCount }, (_, i) => i + 1).map(holeNum => (
-              <div key={holeNum} style={{padding:12,borderRadius:8,background:'var(--hole-bg)'}}>
+              <div 
+                key={holeNum} 
+                style={{padding:12,borderRadius:8,background:'var(--hole-bg)'}}
+                onDragOver={handleGroupDragOver}
+              >
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <strong>Hole {holeNum}</strong>
                   <small style={{color:'var(--muted)'}}>{holeMap[holeNum].length} group(s)</small>
@@ -418,7 +483,12 @@ export default function App() {
                   <p className="empty" style={{marginTop:8}}>— empty —</p>
                 ) : (
                   holeMap[holeNum].map((g, idx) => (
-                    <div key={g.id} style={{marginTop:8,padding:8,borderRadius:6,background:'var(--card)'}}>
+                    <div 
+                      key={g.id} 
+                      style={{marginTop:8,padding:8,borderRadius:6,background:'var(--card)',minHeight:'100px'}}
+                      onDragOver={handleGroupDragOver}
+                      onDrop={e => handleGroupDrop(e, g.id)}
+                    >
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                         <div>
                           <strong>{String.fromCharCode(65 + idx)}</strong>
@@ -431,7 +501,13 @@ export default function App() {
 
                       <div style={{marginTop:8}}>
                         {g.players.map(p => (
-                          <div key={p.name} style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+                          <div 
+                            key={p.name} 
+                            style={{display:'flex',alignItems:'center',gap:8,marginTop:6,cursor:'grab',padding:4,borderRadius:4,backgroundColor:'rgba(0,0,0,0.02)'}}
+                            draggable
+                            onDragStart={e => handlePlayerDragStart(e, g.id, p)}
+                            onDragEnd={handlePlayerDragEnd}
+                          >
                             <div style={{flex:1}}>
                               <div>{p.name}</div>
                             </div>
@@ -470,7 +546,7 @@ export default function App() {
         </div>
 
         <div style={{marginTop:8}}>
-          <small>Names + emails are saved locally for faster signups. Admin login is a client-side convenience — not secure.</small>
+          <small>Names + emails are saved locally for faster signups. Admin login is a client-side convenience — not secure. Drag players between groups to reorganize.</small>
         </div>
       </footer>
     </div>
