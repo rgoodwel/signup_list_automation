@@ -134,10 +134,14 @@ function ensureWeekHasHoles(week) {
 /**
  * Returns true when Group B holes should be unlocked for a given week.
  * B groups open once the total number of players across all Group A holes
- * reaches B_GROUP_THRESHOLD (24).
+ * reaches B_GROUP_THRESHOLD (24).  Once unlocked the flag is persisted on
+ * the week record so they stay open even if the A-group count later drops
+ * below the threshold.
  */
 export function areBGroupsUnlocked(week) {
   if (!week || !week.holes) return false
+  // Sticky: once the flag is set it never goes back to false
+  if (week.bGroupsUnlocked) return true
   let total = 0
   for (let i = 1; i <= HOLE_COUNT; i++) {
     total += (week.holes[String(i)] || []).length
@@ -570,6 +574,12 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
       signedUpAt,
     })
   }
+
+  // Persist the sticky B-group unlock flag once threshold is reached
+  if (!weeks[weekKey].bGroupsUnlocked && areBGroupsUnlocked(weeks[weekKey])) {
+    weeks[weekKey].bGroupsUnlocked = true
+  }
+
   write(KEYS.weeks, weeks)
 
   // Track week in player record

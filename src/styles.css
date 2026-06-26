@@ -31,6 +31,9 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .form{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
 .signup-form{display:flex;flex-direction:column;gap:10px}
 .form input,.form select,.additional-player-row input{flex:1;min-width:140px;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit}
+.signup-submit-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.signup-submit-row button{padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;cursor:pointer}
+.signup-player-count{color:var(--muted);font-size:13px}
 .signup-form > button{padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;cursor:pointer;align-self:flex-start}
 .form-msg{margin-top:8px;padding:8px 12px;border-radius:8px;font-size:14px}
 .form-msg--success{background:rgba(47,125,72,0.12);color:var(--success)}

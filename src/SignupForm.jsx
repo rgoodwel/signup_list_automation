@@ -86,6 +86,8 @@ export default function SignupForm({ onSignedUp }) {
   const holes = week?.holes || Object.fromEntries(holeKeys.map(k => [k, []]))
   const bUnlocked = week ? areBGroupsUnlocked(week) : false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
+  const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
+  const totalAllPlayers = totalAPlayers + totalBPlayers
   const bUnlockRemaining = Math.max(0, B_GROUP_THRESHOLD - totalAPlayers)
 
   function showError(title, message, hint) {
@@ -113,9 +115,15 @@ export default function SignupForm({ onSignedUp }) {
       )
       return
     }
-    for (let i = 0; i < additionalCount; i++) {
-      const p = additionalPlayers[i].trim()
-      if (p && !isFullName(p)) {
+
+    const activePlayers = additionalPlayers.slice(0, additionalCount).map(p => p.trim()).filter(Boolean)
+
+    // Check for duplicate names among additional players and vs. the primary
+    const primaryNorm = name.trim().toLowerCase().replace(/\s+/g, ' ')
+    const seenNames = new Set([primaryNorm])
+    for (let i = 0; i < activePlayers.length; i++) {
+      const p = activePlayers[i]
+      if (!isFullName(p)) {
         showError(
           'Full Name Required',
           `Additional Player ${i + 1} — "${p}" doesn't look like a full name.`,
@@ -123,6 +131,19 @@ export default function SignupForm({ onSignedUp }) {
         )
         return
       }
+      const norm = p.toLowerCase().replace(/\s+/g, ' ')
+      if (seenNames.has(norm)) {
+        const isDup = norm === primaryNorm
+          ? `"${p}" is the same as the primary player name.`
+          : `"${p}" appears more than once in the additional players list.`
+        showError(
+          'Duplicate Player Name',
+          `Additional Player ${i + 1} — ${isDup}`,
+          'Each player in the group must have a unique name.',
+        )
+        return
+      }
+      seenNames.add(norm)
     }
 
     const result = addSignupToWeek({
@@ -323,7 +344,10 @@ export default function SignupForm({ onSignedUp }) {
                 </div>
               ))}
             </div>
-            <button type="submit">Sign Up</button>
+            <div className="signup-submit-row">
+              <button type="submit">Sign Up</button>
+              <span className="signup-player-count">{totalAllPlayers} player{totalAllPlayers !== 1 ? 's' : ''} signed up</span>
+            </div>
           </form>
           <div className="holes-grid">
             {holeKeys.map(holeKey => (
