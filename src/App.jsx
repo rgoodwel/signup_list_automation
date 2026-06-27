@@ -38,7 +38,7 @@ export default function App() {
 
       <main>
         {view === 'player' ? (
-          <SignupForm onSignedUp={refresh} />
+          <SignupForm players={players} onSignedUp={refresh} />
         ) : (
           <AdminView players={players} weeks={weeks} onRefresh={refresh} />
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   addSignupToWeek,
   getCurrentWeekKey,
@@ -56,7 +56,106 @@ function holeLabel(holeKey, bGroupsUnlocked) {
   return bGroupsUnlocked ? `Hole ${holeKey}A` : `Hole ${holeKey}`
 }
 
-export default function SignupForm({ onSignedUp }) {
+/**
+ * Text input with an in-field dropdown that suggests matching players from
+ * the player history table.
+ *
+ * Props:
+ *   value        — controlled string value
+ *   onChange     — (newValue: string) => void
+ *   onSelect     — ({ name, email }) => void  called when user picks a suggestion
+ *   suggestions  — array of { name, email } from player history
+ *   placeholder  — input placeholder text
+ *   inputClass   — optional extra className for the <input>
+ *   required     — forwarded to <input>
+ */
+function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholder, inputClass, required }) {
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const wrapRef = useRef(null)
+
+  const filtered = value.trim().length > 0
+    ? suggestions.filter(s =>
+        s.name.toLowerCase().includes(value.trim().toLowerCase())
+      )
+    : []
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function onPointerDown(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false)
+        setActiveIndex(-1)
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [])
+
+  function handleInputChange(e) {
+    onChange(e.target.value)
+    setOpen(true)
+    setActiveIndex(-1)
+  }
+
+  function handleKeyDown(e) {
+    if (!open || filtered.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex(i => Math.min(i + 1, filtered.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault()
+      pick(filtered[activeIndex])
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+      setActiveIndex(-1)
+    }
+  }
+
+  function pick(suggestion) {
+    onSelect(suggestion)
+    setOpen(false)
+    setActiveIndex(-1)
+  }
+
+  return (
+    <div className="ac-wrap" ref={wrapRef}>
+      <input
+        className={inputClass}
+        placeholder={placeholder}
+        value={value}
+        onChange={handleInputChange}
+        onFocus={() => { if (filtered.length > 0) setOpen(true) }}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+        required={required}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="ac-dropdown" role="listbox">
+          {filtered.map((s, i) => (
+            <li
+              key={s.email}
+              className={`ac-option${i === activeIndex ? ' ac-option--active' : ''}`}
+              role="option"
+              aria-selected={i === activeIndex}
+              // onPointerDown + preventDefault keeps the input focused so the
+              // blur event doesn't close the dropdown before the selection fires
+              onPointerDown={e => { e.preventDefault(); pick(s) }}
+            >
+              <span className="ac-option-name">{s.name}</span>
+              <span className="ac-option-email">{s.email}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+export default function SignupForm({ players, onSignedUp }) {
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
   const [hole, setHole] = useState('AUTO')
@@ -65,6 +164,11 @@ export default function SignupForm({ onSignedUp }) {
   const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text } — success banner only
   const [popup, setPopup] = useState(null) // { title, message, hint? } — error modal
   const [, forceUpdate]   = useState(0)    // used to re-check window on interval
+
+  // Sorted list of known players for autocomplete suggestions
+  const playerSuggestions = Object.values(players || {})
+    .map(p => ({ name: p.name, email: p.email }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   // Auto-open the week when the window is active; re-check every minute
   useEffect(() => {
@@ -282,10 +386,12 @@ export default function SignupForm({ onSignedUp }) {
           </p>
           <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
-              <input
+              <PlayerAutocomplete
                 placeholder="First Last (e.g., Jane Smith)"
                 value={name}
-                onChange={e => { setName(e.target.value); setMsg(null) }}
+                onChange={v => { setName(v); setMsg(null) }}
+                onSelect={s => { setName(s.name); setEmail(s.email); setMsg(null) }}
+                suggestions={playerSuggestions}
                 required
               />
               <input
@@ -336,10 +442,13 @@ export default function SignupForm({ onSignedUp }) {
               </div>
               {Array.from({ length: additionalCount }, (_, i) => (
                 <div key={i} className="additional-player-row">
-                  <input
+                  <PlayerAutocomplete
                     placeholder={`Additional Player ${i + 1} (First Last)`}
                     value={additionalPlayers[i]}
-                    onChange={e => updateAdditionalPlayer(i, e.target.value)}
+                    onChange={v => updateAdditionalPlayer(i, v)}
+                    onSelect={s => updateAdditionalPlayer(i, s.name)}
+                    suggestions={playerSuggestions}
+                    inputClass="ac-additional"
                   />
                   <button
                     type="button"
