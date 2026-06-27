@@ -72,6 +72,13 @@ function normalizeHole(value) {
   return String(n)
 }
 
+function firstEmptyHole(week, keys) {
+  for (const key of keys) {
+    if ((week.holes[key] || []).length === 0) return key
+  }
+  return null
+}
+
 function ensureWeekHasHoles(week) {
   if (!week || typeof week !== 'object') return false
   let changed = false
@@ -457,26 +464,55 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
 
   const weeks = getWeeks()
   if (!weeks[weekKey]) return { ok: false, reason: 'Week record not found.' }
-  ensureWeekHasHoles(weeks[weekKey])
+  const week = weeks[weekKey]
+  ensureWeekHasHoles(week)
 
   const emailKey = email.trim().toLowerCase()
-  const already = weeks[weekKey].signups.some(s => s.email === emailKey)
+  const already = week.signups.some(s => s.email === emailKey)
   if (already) return { ok: false, reason: "You're already signed up for this week!" }
-  const holeKey = normalizeHole(hole)
-  if (!holeKey) return { ok: false, reason: 'Please choose a valid hole.' }
-
-  // B-group holes are only available once the threshold is reached
-  if (holeKey.endsWith('B') && !areBGroupsUnlocked(weeks[weekKey])) {
-    return {
-      ok: false,
-      reason: `Group B holes are not yet available. They unlock once ${B_GROUP_THRESHOLD} players have signed up.`,
-    }
-  }
 
   const rawExtras = additionalPlayers
     .map(p => p.trim())
     .filter(Boolean)
     .slice(0, 3)
+
+  const requestedHole = String(hole || '').trim().toUpperCase()
+  const autoRequested = requestedHole === 'AUTO' || requestedHole === ''
+  const bUnlocked = areBGroupsUnlocked(week)
+  let holeKey = null
+
+  if (autoRequested) {
+    if (bUnlocked) {
+      const bKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
+      holeKey = firstEmptyHole(week, bKeys)
+      if (!holeKey) {
+        return {
+          ok: false,
+          reason: 'No empty Group B hole is available for automatic assignment. Please choose a specific hole.',
+        }
+      }
+    } else {
+      const aKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
+      holeKey = firstEmptyHole(week, aKeys)
+      if (!holeKey) {
+        return {
+          ok: false,
+          reason: 'No empty Group A hole is available for automatic assignment. Please choose a specific hole.',
+        }
+      }
+    }
+  } else {
+    holeKey = normalizeHole(hole)
+    if (!holeKey) return { ok: false, reason: 'Please choose a valid hole.' }
+
+    // B-group holes are only available once the threshold is reached
+    if (holeKey.endsWith('B') && !bUnlocked) {
+      return {
+        ok: false,
+        reason: `Group B holes are not yet available. They unlock once ${B_GROUP_THRESHOLD} players have signed up.`,
+      }
+    }
+  }
 
   // Validate additional player names
   for (const extra of rawExtras) {
@@ -490,16 +526,16 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
 
   // ── Duplicate detection ────────────────────────────────────────────────────
   // Check if the primary player's name already exists as a guest in this week.
-  const primaryNameMatch = findPlayerNameInWeek(weeks[weekKey], name.trim())
+  const primaryNameMatch = findPlayerNameInWeek(week, name.trim())
   if (primaryNameMatch && !primaryNameMatch.player.isPrimary) {
     if (primaryNameMatch.holeKey === holeKey) {
       // Auto-group: upgrade the guest entry to a real primary signup.
       // Remove the guest slot so the capacity check uses the updated count.
-      const hPlayers = weeks[weekKey].holes[holeKey]
+      const hPlayers = week.holes[holeKey]
       const guestIdx = hPlayers.findIndex(p => p.id === primaryNameMatch.player.id)
       if (guestIdx >= 0) hPlayers.splice(guestIdx, 1)
       // Remove from the parent signup's additionalPlayers list.
-      const parentSignup = weeks[weekKey].signups.find(s => s.id === primaryNameMatch.player.signupId)
+      const parentSignup = week.signups.find(s => s.id === primaryNameMatch.player.signupId)
       if (parentSignup && Array.isArray(parentSignup.additionalPlayers)) {
         parentSignup.additionalPlayers = parentSignup.additionalPlayers.filter(
           n => normalizeName(n) !== normalizeName(name.trim())
@@ -516,7 +552,7 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   // Check each additional player against all players already on the week.
   const extras = []
   for (const extra of rawExtras) {
-    const match = findPlayerNameInWeek(weeks[weekKey], extra)
+    const match = findPlayerNameInWeek(week, extra)
     if (match) {
       if (match.holeKey === holeKey) {
         // Already on the same hole — auto-group by skipping the duplicate add.
@@ -533,7 +569,7 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   // ──────────────────────────────────────────────────────────────────────────
 
   const groupSize = 1 + extras.length
-  const holePlayers = weeks[weekKey].holes[holeKey] || []
+  const holePlayers = week.holes[holeKey] || []
   if (holePlayers.length + groupSize > HOLE_CAPACITY) {
     return {
       ok: false,
@@ -548,7 +584,7 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   upsertPlayer({ name, email: emailKey })
 
   // Add to week
-  weeks[weekKey].signups.push({
+  week.signups.push({
     id: signupId,
     hole: holeKey,
     email: emailKey,
@@ -556,7 +592,7 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
     additionalPlayers: extras,
     signedUpAt,
   })
-  weeks[weekKey].holes[holeKey].push({
+  week.holes[holeKey].push({
     id: createId(),
     signupId,
     isPrimary: true,
@@ -565,7 +601,7 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
     signedUpAt,
   })
   for (const extra of extras) {
-    weeks[weekKey].holes[holeKey].push({
+    week.holes[holeKey].push({
       id: createId(),
       signupId,
       isPrimary: false,
@@ -578,8 +614,8 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   // Persist the sticky B-group unlock flag once threshold is reached.
   // Once set to true this flag is never cleared, so Group B holes remain
   // available even if the A-group player count later drops below B_GROUP_THRESHOLD.
-  if (!weeks[weekKey].bGroupsUnlocked && areBGroupsUnlocked(weeks[weekKey])) {
-    weeks[weekKey].bGroupsUnlocked = true
+  if (!week.bGroupsUnlocked && areBGroupsUnlocked(week)) {
+    week.bGroupsUnlocked = true
   }
 
   write(KEYS.weeks, weeks)

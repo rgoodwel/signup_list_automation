@@ -59,7 +59,7 @@ function holeLabel(holeKey, bGroupsUnlocked) {
 export default function SignupForm({ onSignedUp }) {
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
-  const [hole, setHole] = useState('1')
+  const [hole, setHole] = useState('AUTO')
   const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
   const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text } — success banner only
@@ -156,6 +156,7 @@ export default function SignupForm({ onSignedUp }) {
       setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You're signed up.` })
       setName('')
       setEmail('')
+      setHole('AUTO')
       setAdditionalPlayers(['', '', ''])
       setAdditionalCount(0)
       if (onSignedUp) onSignedUp()
@@ -180,6 +181,9 @@ export default function SignupForm({ onSignedUp }) {
       } else if (reason.includes("is already signed up on Hole")) {
         title = 'Duplicate Additional Player'
         hint = 'Remove that person from your additional players list — they are already signed up on another hole and need to be managed there.'
+      } else if (reason.includes("automatic assignment")) {
+        title = 'Auto Assignment Unavailable'
+        hint = 'Choose a specific hole from the list and try again.'
       } else if (reason.includes("first and last name")) {
         title = 'Full Name Required'
         hint = 'Enter both first and last names for every player (e.g., "Jane Smith").'
@@ -296,6 +300,9 @@ export default function SignupForm({ onSignedUp }) {
                 onChange={e => { setHole(e.target.value); setMsg(null) }}
                 required
               >
+                <option value="AUTO">
+                  Automatic Assignment
+                </option>
                 <optgroup label="Group A">
                   {holeKeys.map(holeKey => (
                     <option key={holeKey} value={holeKey}>
