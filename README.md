@@ -1,33 +1,31 @@
-# Signup List Automation
+# Signup List Automation (Golf League)
 
-This repository contains a minimal React application (Vite) that you can build and deploy as a static website to AWS (S3, CloudFront, or Amplify).
+This React + Vite app implements a weekly golf-league signup system. It stores groups of players (names + emails) in browser localStorage and includes rules to form and manage groups for play across 9 holes.
 
-Quick start
+New/updated features
 
-1. Install dependencies
+- No longer requires users to "set name" before signing up; general users can sign up directly in the main form with name + email.
+- Admin login moved to the bottom of the page — admins enter their full name (client-side) to get admin privileges (clear groups, edit during locked weeks).
+- Each player now provides an email (validated with a simple regex). The form enforces first + last name and a valid email for every player.
+- Profiles: saved name+email mapping stored in localStorage so future signups can use the browser datalist to quickly select existing names and autofill email.
+- Holes display: UI initially shows all 9 holes (1..9). Groups are assigned in round-robin order across holes. When more than 9 groups exist, holes receive multiple groups (A/B labels)
+- Lock window updated: Signups are locked weekly from Sunday 3:00 PM Eastern Time until Tuesday 3:00 PM Eastern Time. During that window only admins may modify groups.
 
-   npm install
+Storage keys
 
-2. Run locally
+- Groups: `signup_list_automation.groups_v3`
+- Profiles: `signup_list_automation.profiles_v1`
 
-   npm run dev
+Security note
 
-3. Build for production
+- The admin login is a light client-side convenience for small private leagues. For stronger security, integrate a proper authentication provider (Cognito, Auth0) and verify admin claims server-side.
 
-   npm run build
+To run
 
-The production build will be generated in the dist/ directory.
+1. npm install
+2. npm run dev
+3. npm run build
 
-Deploy to AWS S3 (static website)
+Deployment
 
-- Create an S3 bucket (e.g., my-site.example.com).
-- In the S3 console, enable static website hosting or upload the contents of the dist/ folder to the bucket.
-- If you want HTTPS and a CDN, create a CloudFront distribution that points to the S3 bucket (or use AWS Amplify which handles build & deploy).
-
-Deploy with AWS Amplify (recommended for CI/CD)
-
-- Connect the repository to AWS Amplify from the AWS console and Amplify will build using `npm run build` and host the resulting site.
-
-Notes
-
-- This app stores signups in the browser's localStorage. For real automation you can wire the form to an API endpoint or AWS Lambda + DynamoDB / SES.
+- Build artifacts appear in `dist/`. Upload to S3 or use Amplify for CI/CD.
