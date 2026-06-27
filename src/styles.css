@@ -1,33 +1,146 @@
-/* Branding update to approximate https://www.se.church/ */
 :root{
-  --bg: #ffffff;
-  --text:#0f1724;
-  --muted:#64748b;
-  --accent:#0ea5a4; /* teal */
-  --card: #f8fafc;
-  --hole-bg: #f1f5f9;
+  --bg:#f5f1e8;
+  --card:#ffffff;
+  --muted:#6a707a;
+  --accent:#1f3d5c;
+  --danger:#b24a3a;
+  --success:#2f7d48;
+  --border:rgba(20,40,60,0.14);
+  --ink:#1b2430;
 }
 
 *{box-sizing:border-box}
-body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial; margin:0; background:var(--bg); color:var(--text)}
-.container{max-width:960px;margin:32px auto;padding:24px;background:transparent;border-radius:12px}
-header h1{margin:0 0 4px;color:var(--text)}
-header p{margin:0;color:var(--muted)}
-.form{display:block;margin:16px 0}
-.form input, .form select{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef8;background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(2,6,23,0.04)}
-.form button{padding:8px 14px;border-radius:8px;background:var(--accent);border:none;color:white;font-weight:600}
-.list-header{display:flex;align-items:center;justify-content:space-between}
-.list{margin-top:12px}
-.list ul{list-style:none;padding:0;margin:0}
-.list li{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:8px;margin-bottom:8px}
-.remove{background:transparent;border:1px solid rgba(2,6,23,0.06);padding:6px 8px;border-radius:6px;color:var(--muted)}
-.clear{background:transparent;border:1px solid rgba(2,6,23,0.06);padding:6px 8px;border-radius:6px;color:var(--muted)}
-.empty{color:var(--muted);margin-top:12px}
-footer{margin-top:16px;color:var(--muted)}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial; margin:0; background:linear-gradient(180deg,#f8f6f0,var(--bg)); color:var(--ink); min-height:100vh}
+.container{max-width:980px;margin:40px auto;padding:24px;background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 8px 24px rgba(20,40,60,0.08)}
 
-/* Buttons and small UI tweaks */
-button[disabled]{opacity:0.5}
+/* ── Header ── */
+.header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#15324d;letter-spacing:.02em}
+.muted{color:var(--muted);margin:0}
 
-/* accent for se-brand */
-.se-brand header h1{color:var(--accent)}
-.se-brand .form button{background:var(--accent)}
+/* ── Buttons ── */
+.btn{padding:9px 16px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:14px;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:#f3f0ea;color:#26445f;border:1px solid var(--border)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:#26445f}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+
+/* ── Signup form ── */
+.form{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+.signup-form{display:flex;flex-direction:column;gap:10px}
+.form input,.form select,.additional-player-row input{flex:1;min-width:140px;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit}
+.signup-submit-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.signup-submit-row button{padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;cursor:pointer}
+.signup-player-count{color:var(--muted);font-size:13px}
+.signup-form > button{padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;cursor:pointer;align-self:flex-start}
+.form-msg{margin-top:8px;padding:8px 12px;border-radius:8px;font-size:14px}
+.form-msg--success{background:rgba(47,125,72,0.12);color:var(--success)}
+.form-msg--error{background:rgba(178,74,58,0.12);color:var(--danger)}
+.week-open-notice{color:var(--muted);font-size:14px;margin:0 0 8px}
+.closed-notice{margin:16px 0}
+.week-closed-notice{color:var(--muted);margin:0 0 6px;font-style:italic;font-size:15px}
+.reopen-notice{color:var(--muted);font-size:13px;margin:0}
+.additional-player-block{padding:12px;border:1px solid var(--border);border-radius:10px;background:#faf8f3}
+.additional-player-header{display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.additional-player-header .muted{margin:0}
+.additional-player-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.holes-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.hole-card{padding:12px;border:1px solid var(--border);border-radius:10px;background:#fff;min-height:160px}
+.hole-card h3{margin:0 0 4px;font-size:15px;color:#15324d}
+.hole-card--full{border-color:rgba(178,74,58,0.6)}
+.hole-count{margin:0 0 8px;color:var(--muted);font-size:13px}
+.hole-player-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.hole-player{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;background:#f6f7f8;border:1px solid rgba(20,40,60,0.08);cursor:grab}
+.btn-remove-player{border:none;background:rgba(178,74,58,0.14);color:var(--danger);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px}
+
+/* ── Panel ── */
+.panel{margin-top:20px;padding:20px;background:#fff;border:1px solid var(--border);border-radius:10px}
+.panel h2{margin:0 0 12px;font-size:17px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.panel-header h2{margin:0}
+.panel-actions{display:flex;gap:8px}
+
+/* ── Tabs ── */
+.tab-bar{display:flex;gap:4px;flex-wrap:wrap;margin-top:16px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.tab-btn{background:transparent;border:1px solid transparent;border-radius:8px 8px 0 0;padding:8px 16px;color:var(--muted);cursor:pointer;font-size:14px;font-weight:500;transition:all .15s}
+.tab-btn:hover{color:var(--ink);background:rgba(20,40,60,0.04)}
+.tab-btn--active{color:var(--accent);border-color:var(--border);border-bottom-color:transparent;background:rgba(20,40,60,0.05)}
+.tab-btn--logout{margin-left:auto;color:var(--danger)}
+
+/* ── Badge ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.05em}
+.badge-green{background:rgba(74,222,128,0.15);color:var(--success)}
+
+/* ── Tables ── */
+.table-scroll{overflow-x:auto}
+.data-table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+.data-table th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600;white-space:nowrap}
+.data-table td{padding:8px 12px;border-bottom:1px solid rgba(20,40,60,0.05)}
+.data-table tbody tr:hover{background:rgba(20,40,60,0.04)}
+.data-table tbody tr:nth-child(even){background:rgba(20,40,60,0.02)}
+.sortable{cursor:pointer;user-select:none}
+.sortable:hover{color:#15324d}
+.sort-icon{margin-left:4px;font-size:12px;opacity:.6}
+.week-label{margin:0 0 12px;font-size:14px}
+
+/* ── Filter input ── */
+.filter-input{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:14px;min-width:220px}
+
+/* ── Stat cards ── */
+.stat-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-card{flex:1;min-width:120px;padding:16px;background:#fbfaf6;border:1px solid var(--border);border-radius:10px;text-align:center}
+.stat-value{display:block;font-size:28px;font-weight:700;color:var(--accent)}
+.stat-label{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ── Chart ── */
+.chart-wrap{margin-top:8px}
+
+/* ── Export ── */
+.export-row{display:flex;gap:12px;flex-wrap:wrap}
+
+/* ── PIN gate ── */
+.pin-gate{max-width:380px;margin:24px auto;padding:28px;background:#fff;border:1px solid var(--border);border-radius:12px;text-align:center}
+.pin-gate h2{margin:0 0 8px}
+.pin-form{display:flex;flex-direction:column;gap:10px;margin:16px 0 0}
+.pin-form input{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:15px;text-align:center;letter-spacing:.2em}
+
+/* ── Alert modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(20,40,60,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal-card{background:#fff;border-radius:14px;box-shadow:0 16px 48px rgba(20,40,60,0.22);max-width:440px;width:100%;padding:28px 28px 22px;animation:modal-in .18s ease}
+@keyframes modal-in{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-title{margin:0 0 12px;font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;color:#b24a3a}
+.modal-body{margin:0 0 18px;font-size:14px;line-height:1.6;color:var(--ink)}
+.modal-hint{margin:10px 0 0;font-size:13px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px}
+.modal-actions{display:flex;justify-content:flex-end}
+.modal-dismiss{padding:9px 22px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:opacity .15s}
+.modal-dismiss:hover{opacity:.85}
+
+/* ── B-group ── */
+.b-group-heading{margin:20px 0 10px;font-size:16px;font-weight:700;color:var(--accent)}
+.b-group-notice{margin:10px 0 0;font-size:13px;color:var(--muted);font-style:italic}
+.hole-card--b-group{background:#f7f4fc;border-color:rgba(100,60,160,0.22)}
+.hole-card--b-group h3{color:#4a3080}
+
+/* ── Legacy ── */
+.empty{color:var(--muted);margin-top:4px}
+footer{margin-top:24px;color:var(--muted)}
+
+/* ── Player autocomplete ── */
+.ac-wrap{position:relative;flex:1;min-width:140px}
+.ac-wrap input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit}
+.ac-additional{width:100%}
+.ac-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:200;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(20,40,60,0.12);list-style:none;padding:4px 0;margin:0;max-height:220px;overflow-y:auto}
+.ac-option{display:flex;flex-direction:column;gap:1px;padding:8px 12px;cursor:pointer;font-size:14px}
+.ac-option:hover,.ac-option--active{background:rgba(31,61,92,0.08)}
+.ac-option-name{font-weight:600;color:var(--ink)}
+.ac-option-email{font-size:12px;color:var(--muted)}
+
+@media (max-width: 900px){
+  .holes-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media (max-width: 620px){
+  .holes-grid{grid-template-columns:1fr}
+}
