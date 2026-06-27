@@ -31,10 +31,10 @@ export default function CurrentWeekPanel({ onRefresh }) {
         <h2>Current Week</h2>
         <div className="panel-actions">
           {isOpen ? (
-            <button className="btn btn-danger" onClick={handleClose}>Close Week</button>
+            <button className="btn btn-danger" onClick={handleClose}>Lock Signups</button>
           ) : (
             <button className="btn btn-primary" onClick={handleOpen}>
-              Open Week ({weekKeyFromDate()})
+              Unlock Signups ({weekKeyFromDate()})
             </button>
           )}
         </div>
@@ -74,8 +74,8 @@ export default function CurrentWeekPanel({ onRefresh }) {
       ) : (
         <p className="empty">
           {weekKey
-            ? `Week ${weekKeyToLabel(weekKey)} is closed.`
-            : 'No week is currently open.'}
+            ? `${weekKeyToLabel(weekKey)} signups are locked.`
+            : 'Signups are locked. Use "Unlock Signups" to open the current week.'}
         </p>
       )}
     </div>
