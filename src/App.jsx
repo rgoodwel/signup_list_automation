@@ -24,7 +24,7 @@ export default function App() {
       <header>
         <div className="header-row">
           <div>
-            <h1>SE Church Signup List</h1>
+            <h1>Monday Night Golf League</h1>
             <p className="muted">Sign up for this week’s round below.</p>
           </div>
           <button
