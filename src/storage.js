@@ -1,22 +1,30 @@
-// src/storage.js
-
-const WEEKS_KEY = 'signup.weeks.v2'
-const CURRENT_WEEK_KEY = 'signup.currentWeek.v2'
-const PROFILES_KEY = 'signup.playerProfiles.v1'
+const WEEKS_KEY = 'sla_weeks'
+const CURRENT_WEEK_KEY = 'sla_current_week'
+const PLAYERS_KEY = 'sla_players'
 
 export const HOLE_COUNT = 9
 export const HOLE_CAPACITY = 4
-export const B_GROUP_THRESHOLD = 37 // 37th+ player enables B groups
+export const B_GROUP_THRESHOLD = 37
+
+function readJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
+  } catch {
+    return fallback
+  }
+}
+function writeJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value))
+}
 
 export function weekKeyFromDate(d = new Date()) {
-  // ISO week number
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
   const dayNum = date.getUTCDay() || 7
   date.setUTCDate(date.getUTCDate() + 4 - dayNum)
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
-  const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7)
-  const year = date.getUTCFullYear()
-  return `${year}-W${String(weekNo).padStart(2, '0')}`
+  const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7)
+  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`
 }
 
 export function weekKeyToLabel(key) {
@@ -35,12 +43,13 @@ function ordinalSuffix(n) {
   return 'th'
 }
 
+// IMPORTANT: this export is used by SignupForm.jsx
 export function weekKeyToRoundDateLabel(key) {
-  if (!key) return '—'
+  if (!key) return null
   const [yearRaw, weekRaw] = key.split('-W')
-  const year = parseInt(yearRaw, 10)
-  const week = parseInt(weekRaw, 10)
-  if (!year || !week) return '—'
+  const year = Number(yearRaw)
+  const week = Number(weekRaw)
+  if (!year || !week) return null
 
   const jan4 = new Date(Date.UTC(year, 0, 4))
   const jan4Day = jan4.getUTCDay() || 7
@@ -60,7 +69,6 @@ export function weekKeyToRoundDateLabel(key) {
   const weekday = parts.find(p => p.type === 'weekday')?.value || 'Monday'
   const month = parts.find(p => p.type === 'month')?.value || 'January'
   const day = parseInt(parts.find(p => p.type === 'day')?.value || '1', 10)
-
   return `${weekday} ${month} ${day}${ordinalSuffix(day)}`
 }
 
@@ -70,54 +78,11 @@ export function compareWeekKeys(a, b) {
   return ay !== by ? ay - by : aw - bw
 }
 
-// --- NEW: safe fallback auto-open ---
-// If no usable current week exists, create/open the current ISO week.
-// This prevents player page from becoming non-functional after lock-flow changes.
-export function ensureCurrentWeekOpen() {
-  const current = getCurrentWeekKey()
-  const weeks = getWeeks()
-
-  if (current && weeks[current] && !weeks[current].closedAt) {
-    return current
-  }
-
-  const key = weekKeyFromDate(new Date())
-  if (!weeks[key]) {
-    weeks[key] = { key, createdAt: Date.now(), closedAt: null, holes: makeEmptyHoles() }
-    setWeeks(weeks)
-  } else if (weeks[key].closedAt) {
-    weeks[key].closedAt = null
-    setWeeks(weeks)
-  }
-
-  setCurrentWeekKey(key)
-  return key
-}
-
-function makeEmptyHoles() {
-  const holes = {}
-  for (let i = 1; i <= HOLE_COUNT; i++) holes[String(i)] = []
-  return holes
-}
-
-function getJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function setJson(key, value) {
-  localStorage.setItem(key, JSON.stringify(value))
-}
-
 export function getWeeks() {
-  return getJson(WEEKS_KEY, {})
+  return readJson(WEEKS_KEY, {})
 }
 export function setWeeks(weeks) {
-  setJson(WEEKS_KEY, weeks)
+  writeJson(WEEKS_KEY, weeks)
 }
 
 export function getCurrentWeekKey() {
@@ -128,19 +93,17 @@ export function setCurrentWeekKey(key) {
   else localStorage.setItem(CURRENT_WEEK_KEY, key)
 }
 
-export function getWeek(key) {
-  const weeks = getWeeks()
-  return weeks[key] || null
+function makeEmptyHoles() {
+  const holes = {}
+  for (let i = 1; i <= HOLE_COUNT; i++) holes[String(i)] = []
+  return holes
 }
 
 export function openWeek(key) {
   const weeks = getWeeks()
-  if (!weeks[key]) {
-    weeks[key] = { key, createdAt: Date.now(), closedAt: null, holes: makeEmptyHoles() }
-  } else {
-    weeks[key].closedAt = null
-    if (!weeks[key].holes) weeks[key].holes = makeEmptyHoles()
-  }
+  if (!weeks[key]) weeks[key] = { key, holes: makeEmptyHoles(), closedAt: null }
+  weeks[key].closedAt = null
+  if (!weeks[key].holes) weeks[key].holes = makeEmptyHoles()
   setWeeks(weeks)
   setCurrentWeekKey(key)
   return key
@@ -154,70 +117,70 @@ export function closeWeek(key) {
   setWeeks(weeks)
 }
 
-export function addSignupToWeek(weekKey, player, hole) {
+export function getWeek(key) {
   const weeks = getWeeks()
-  const wk = weeks[weekKey]
-  if (!wk) throw new Error('Week not found')
-  if (wk.closedAt) throw new Error('Week is closed')
+  return key ? weeks[key] || null : null
+}
 
-  const holeKey = String(hole || '1')
-  if (!wk.holes[holeKey]) wk.holes[holeKey] = []
-  if (wk.holes[holeKey].length >= HOLE_CAPACITY) throw new Error(`Hole ${holeKey} is full`)
+export function addSignupToWeek(weekKey, player, holeKey = '1') {
+  const weeks = getWeeks()
+  const week = weeks[weekKey]
+  if (!week) throw new Error('Week not found')
+  if (week.closedAt) throw new Error('Signups are closed')
 
-  wk.holes[holeKey].push(player)
-  weeks[weekKey] = wk
+  if (!week.holes) week.holes = makeEmptyHoles()
+  const key = String(holeKey)
+  if (!week.holes[key]) week.holes[key] = []
+  if (week.holes[key].length >= HOLE_CAPACITY) throw new Error(`Hole ${key} is full`)
+
+  week.holes[key].push(player)
+  weeks[weekKey] = week
   setWeeks(weeks)
 }
 
-export function movePlayerBetweenHoles(weekKey, fromHole, fromIndex, toHole) {
+export function movePlayerBetweenHoles(weekKey, fromHole, fromIdx, toHole) {
   const weeks = getWeeks()
-  const wk = weeks[weekKey]
-  if (!wk) throw new Error('Week not found')
-  if (wk.closedAt) throw new Error('Week is closed')
+  const week = weeks[weekKey]
+  if (!week) throw new Error('Week not found')
+  if (week.closedAt) throw new Error('Signups are closed')
 
-  const a = wk.holes[String(fromHole)] || []
+  const a = week.holes?.[String(fromHole)] || []
   const bKey = String(toHole)
-  if (!wk.holes[bKey]) wk.holes[bKey] = []
-  const b = wk.holes[bKey]
+  if (!week.holes[bKey]) week.holes[bKey] = []
+  const b = week.holes[bKey]
 
-  if (fromIndex < 0 || fromIndex >= a.length) throw new Error('Invalid player index')
+  if (fromIdx < 0 || fromIdx >= a.length) throw new Error('Invalid index')
   if (b.length >= HOLE_CAPACITY) throw new Error(`Hole ${bKey} is full`)
 
-  const [player] = a.splice(fromIndex, 1)
-  b.push(player)
-
-  weeks[weekKey] = wk
+  const [p] = a.splice(fromIdx, 1)
+  b.push(p)
   setWeeks(weeks)
 }
 
-export function removePlayerFromHole(weekKey, hole, index) {
+export function removePlayerFromHole(weekKey, hole, idx) {
   const weeks = getWeeks()
-  const wk = weeks[weekKey]
-  if (!wk) throw new Error('Week not found')
-  if (wk.closedAt) throw new Error('Week is closed')
+  const week = weeks[weekKey]
+  if (!week) throw new Error('Week not found')
+  if (week.closedAt) throw new Error('Signups are closed')
 
-  const arr = wk.holes[String(hole)] || []
-  if (index < 0 || index >= arr.length) throw new Error('Invalid player index')
-  arr.splice(index, 1)
-
-  weeks[weekKey] = wk
+  const arr = week.holes?.[String(hole)] || []
+  if (idx < 0 || idx >= arr.length) throw new Error('Invalid index')
+  arr.splice(idx, 1)
   setWeeks(weeks)
 }
 
 export function areBGroupsUnlocked(week) {
-  if (!week?.holes) return false
-  const totalPlayers = Object.values(week.holes).reduce((sum, arr) => sum + (arr?.length || 0), 0)
-  return totalPlayers >= B_GROUP_THRESHOLD
+  const total = Object.values(week?.holes || {}).reduce((n, a) => n + (a?.length || 0), 0)
+  return total >= B_GROUP_THRESHOLD
 }
 
 export function isFullName(name) {
-  return /\S+\s+\S+/.test((name || '').trim())
+  return /\S+\s+\S+/.test(String(name || '').trim())
 }
 
-// optional profile helpers (kept as-is if used by your UI)
-export function getProfiles() {
-  return getJson(PROFILES_KEY, {})
+export function getPlayers() {
+  return readJson(PLAYERS_KEY, {})
 }
-export function setProfiles(p) {
-  setJson(PROFILES_KEY, p)
+export function setPlayers(players) {
+  writeJson(PLAYERS_KEY, players)
 }

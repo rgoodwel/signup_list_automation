@@ -1,5 +1,4 @@
 // src/SignupForm.jsx
-import React, { useState, useEffect, useRef } from 'react'
 import {
   addSignupToWeek,
   getCurrentWeekKey,
@@ -7,13 +6,13 @@ import {
   removePlayerFromHole,
   movePlayerBetweenHoles,
   weekKeyToLabel,
-  weekKeyToRoundDateLabel,
-  ensureCurrentWeekOpen, // <-- NEW
+  weekKeyToRoundDateLabel, // must exist in storage.js
   isFullName,
   HOLE_COUNT,
   HOLE_CAPACITY,
   B_GROUP_THRESHOLD,
   areBGroupsUnlocked,
+  ensureCurrentWeekOpen, // must exist in storage.js
 } from './storage'
 
 // ...keep your existing PlayerAutocomplete and other helper components unchanged...
