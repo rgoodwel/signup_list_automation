@@ -1,0 +1,222 @@
+###############################################################################
+# deploy.yml
+#
+# Builds the Vite app and deploys it to S3 + invalidates CloudFront cache.
+# Triggered:
+#   - After terraform-apply.yml completes (infrastructure ready)
+#   - Manually via workflow_dispatch for any environment
+#   - On push to main for app code changes (infra already applied)
+#
+# Required GitHub secrets (per environment):
+#   AWS_ROLE_ARN             – IAM role ARN (OIDC)
+#   AWS_REGION               – (optional, default us-east-1)
+#   S3_BUCKET_DEV            – dev app S3 bucket name
+#   S3_BUCKET_STAGE          – stage app S3 bucket name
+#   S3_BUCKET_PROD           – prod app S3 bucket name
+#   CF_DISTRIBUTION_ID_DEV   – dev CloudFront distribution ID
+#   CF_DISTRIBUTION_ID_STAGE – stage CloudFront distribution ID
+#   CF_DISTRIBUTION_ID_PROD  – prod CloudFront distribution ID
+###############################################################################
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "index.html"
+      - "package*.json"
+      - "vite.config.*"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [dev, stage, prod]
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'main' }}
+  cancel-in-progress: false  # Never cancel an in-flight deploy
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  ###########################################################################
+  # Build the Vite app
+  ###########################################################################
+  build:
+    name: Build App
+    runs-on: ubuntu-latest
+    # Skip if triggered by a failed terraform workflow_run
+    if: |
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      artifact-name: dist-${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 7
+
+  ###########################################################################
+  # Deploy to dev (auto on push to main)
+  ###########################################################################
+  deploy-dev:
+    name: Deploy to dev
+    runs-on: ubuntu-latest
+    needs: build
+    if: |
+      needs.build.result == 'success' &&
+      (github.event_name == 'push' ||
+       github.event_name == 'workflow_run' ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev'))
+    environment: dev
+
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_DEV }}/ \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+          # index.html: no-cache so latest SPA shell is always fetched
+          aws s3 cp dist/index.html s3://${{ secrets.S3_BUCKET_DEV }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CF_DISTRIBUTION_ID_DEV }} \
+            --paths "/*"
+
+      - name: Print site URL
+        run: echo "Dev site deployed. Check CloudFront distribution ${{ secrets.CF_DISTRIBUTION_ID_DEV }}"
+
+  ###########################################################################
+  # Deploy to stage (auto on push to main, after dev)
+  ###########################################################################
+  deploy-stage:
+    name: Deploy to stage
+    runs-on: ubuntu-latest
+    needs: [build, deploy-dev]
+    if: |
+      needs.build.result == 'success' &&
+      needs.deploy-dev.result == 'success' &&
+      (github.event_name == 'push' ||
+       github.event_name == 'workflow_run' ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'stage'))
+    environment: stage
+
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_STAGE }}/ \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+          aws s3 cp dist/index.html s3://${{ secrets.S3_BUCKET_STAGE }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CF_DISTRIBUTION_ID_STAGE }} \
+            --paths "/*"
+
+  ###########################################################################
+  # Deploy to prod (manual dispatch only, protected environment)
+  ###########################################################################
+  deploy-prod:
+    name: Deploy to prod
+    runs-on: ubuntu-latest
+    needs: build
+    if: |
+      needs.build.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.environment == 'prod'
+    environment: prod   # Configure required reviewers in repo settings!
+
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_PROD }}/ \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+          aws s3 cp dist/index.html s3://${{ secrets.S3_BUCKET_PROD }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CF_DISTRIBUTION_ID_PROD }} \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "## Prod Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployed by: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Time: $(date -u)" >> $GITHUB_STEP_SUMMARY

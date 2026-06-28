@@ -3,3 +3,22 @@ dist/
 .env
 .DS_Store
 coverage/
+
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfstate.d/
+**/.terraform.tfstate.lock.info
+**/tfplan.binary
+**/tfplan.txt
+**/*.tfvars
+**/*.tfvars.json
+**/backend.hcl
+!**/*.tfvars.example
+!**/backend.hcl.example
+
+# Bootstrap local state (kept locally, not pushed)
+infra/bootstrap/terraform.tfstate
+infra/bootstrap/terraform.tfstate.backup

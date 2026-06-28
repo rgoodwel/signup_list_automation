@@ -1,0 +1,3 @@
+bucket         = "golf-league-tf-state-REPLACE_WITH_YOUR_BUCKET"
+dynamodb_table = "golf-league-tf-lock"
+region         = "us-east-1"

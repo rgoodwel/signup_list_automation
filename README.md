@@ -26,6 +26,6 @@ To run
 2. npm run dev
 3. npm run build
 
-Deployment
+## Deployment
 
-- Build artifacts appear in `dist/`. Upload to S3 or use Amplify for CI/CD.
+- Build artifacts appear in `dist/`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full AWS deployment guide (S3 + CloudFront + GitHub Actions CI/CD with Terraform).

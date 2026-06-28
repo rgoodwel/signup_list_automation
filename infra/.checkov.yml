@@ -1,0 +1,17 @@
+# Checkov configuration for Terraform IaC scans
+# See: https://www.checkov.io/2.Basics/CLI%20Command%20Reference.html
+
+soft-fail: false
+framework:
+  - terraform
+
+# Skipped checks with justification:
+skip-check:
+  # CKV_AWS_86: CloudFront access logging – acceptable to skip for small private league
+  #             Enable if compliance/audit logging is required
+  - CKV_AWS_86
+  # CKV_AWS_68: CloudFront WAF – overkill for a private internal app, no public user data
+  #             Enable if the app becomes public-facing with sensitive data
+  - CKV_AWS_68
+  # CKV2_AWS_32: CloudFront response headers policy – we have our own via resource
+  - CKV2_AWS_32

@@ -1,0 +1,13 @@
+# Prod environment variable values
+aws_region   = "us-east-1"
+project_name = "golf-league"
+bucket_name  = "golf-league-prod-site-REPLACE_WITH_UNIQUE_SUFFIX"
+
+custom_domain         = ""
+custom_domain_aliases = []
+route53_zone_id       = ""
+
+# Example with custom domain (recommended for prod):
+# custom_domain         = "golf.example.com"
+# custom_domain_aliases = ["www.golf.example.com"]
+# route53_zone_id       = "Z1234567890ABC"

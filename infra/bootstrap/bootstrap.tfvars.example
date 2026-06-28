@@ -1,0 +1,9 @@
+# Bootstrap tfvars – fill in your values before running
+# cp bootstrap.tfvars.example bootstrap.tfvars  (bootstrap.tfvars is gitignored)
+
+aws_region               = "us-east-1"
+project_name             = "golf-league"
+state_bucket_name        = "golf-league-tf-state-REPLACE_WITH_UNIQUE_SUFFIX"
+lock_table_name          = "golf-league-tf-lock"
+github_repo              = "rgoodwel/signup_list_automation"
+github_actions_role_name = "golf-league-github-actions"

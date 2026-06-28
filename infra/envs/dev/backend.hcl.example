@@ -1,0 +1,7 @@
+# Backend config for dev – pass to terraform init via -backend-config=backend.hcl
+# Values filled in by CI from GitHub secrets, or manually for local use.
+# This file is committed (it has no secrets – bucket/table names are not sensitive).
+
+bucket         = "golf-league-tf-state-REPLACE_WITH_YOUR_BUCKET"
+dynamodb_table = "golf-league-tf-lock"
+region         = "us-east-1"

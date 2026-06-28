@@ -1,0 +1,12 @@
+# Stage environment variable values
+aws_region   = "us-east-1"
+project_name = "golf-league"
+bucket_name  = "golf-league-stage-site-REPLACE_WITH_UNIQUE_SUFFIX"
+
+custom_domain         = ""
+custom_domain_aliases = []
+route53_zone_id       = ""
+
+# Example with custom domain:
+# custom_domain   = "stage.golf.example.com"
+# route53_zone_id = "Z1234567890ABC"

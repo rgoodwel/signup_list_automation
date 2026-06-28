@@ -1,0 +1,16 @@
+# Dev environment variable values
+# Copy to terraform.tfvars (gitignored) or pass via TF_VAR_* env vars in CI
+
+aws_region   = "us-east-1"
+project_name = "golf-league"
+bucket_name  = "golf-league-dev-site-REPLACE_WITH_UNIQUE_SUFFIX"
+
+# Optional: leave empty to use https://<id>.cloudfront.net
+custom_domain         = ""
+custom_domain_aliases = []
+route53_zone_id       = ""
+
+# Example with custom domain:
+# custom_domain         = "dev.golf.example.com"
+# custom_domain_aliases = []
+# route53_zone_id       = "Z1234567890ABC"
