@@ -231,6 +231,10 @@ resource "aws_cloudfront_response_headers_policy" "site" {
 
   security_headers_config {
     content_security_policy {
+      # 'unsafe-inline' is required for Vite's production build which injects
+      # inline styles for CSS modules and some hydration code. This is a
+      # known Vite limitation. If you add a nonce-based CSP later, remove
+      # 'unsafe-inline' and configure Vite's vitePlugin to emit nonces.
       content_security_policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self';"
       override                = true
     }

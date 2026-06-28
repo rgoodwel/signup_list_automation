@@ -64,12 +64,21 @@ jobs:
             -backend-config="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE }}" \
             -backend-config="region=${{ secrets.AWS_REGION || 'us-east-1' }}"
 
+      - name: Resolve bucket name for environment
+        id: bucket
+        run: |
+          case "${{ matrix.env }}" in
+            dev)   echo "name=${{ secrets.TF_VAR_BUCKET_NAME_DEV }}" >> $GITHUB_OUTPUT ;;
+            stage) echo "name=${{ secrets.TF_VAR_BUCKET_NAME_STAGE }}" >> $GITHUB_OUTPUT ;;
+            prod)  echo "name=${{ secrets.TF_VAR_BUCKET_NAME_PROD }}" >> $GITHUB_OUTPUT ;;
+          esac
+
       - name: Terraform plan
         id: plan
         working-directory: infra/envs/${{ matrix.env }}
         run: |
           terraform plan \
-            -var="bucket_name=${{ secrets[format('TF_VAR_BUCKET_NAME_{0}', upper(matrix.env))] || secrets.TF_VAR_BUCKET_NAME }}" \
+            -var="bucket_name=${{ steps.bucket.outputs.name }}" \
             -no-color \
             -out=tfplan.binary
           terraform show -no-color tfplan.binary > tfplan.txt

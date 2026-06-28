@@ -81,11 +81,11 @@ jobs:
   apply:
     name: Apply (${{ matrix.env }})
     runs-on: ubuntu-latest
-    needs: [set-matrix]
+    needs: [set-matrix, validate-dispatch]
     if: |
       always() &&
       (needs.set-matrix.result == 'success') &&
-      (github.event_name != 'workflow_dispatch' || needs.validate-dispatch.result == 'success')
+      (needs.validate-dispatch.result == 'success' || needs.validate-dispatch.result == 'skipped')
     strategy:
       fail-fast: true
       max-parallel: 1   # Apply one env at a time
@@ -118,11 +118,20 @@ jobs:
             -backend-config="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE }}" \
             -backend-config="region=${{ secrets.AWS_REGION || 'us-east-1' }}"
 
+      - name: Resolve bucket name for environment
+        id: bucket
+        run: |
+          case "${{ matrix.env }}" in
+            dev)   echo "name=${{ secrets.TF_VAR_BUCKET_NAME_DEV }}" >> $GITHUB_OUTPUT ;;
+            stage) echo "name=${{ secrets.TF_VAR_BUCKET_NAME_STAGE }}" >> $GITHUB_OUTPUT ;;
+            prod)  echo "name=${{ secrets.TF_VAR_BUCKET_NAME_PROD }}" >> $GITHUB_OUTPUT ;;
+          esac
+
       - name: Terraform plan (for apply)
         working-directory: infra/envs/${{ matrix.env }}
         run: |
           terraform plan \
-            -var="bucket_name=${{ secrets[format('TF_VAR_BUCKET_NAME_{0}', upper(matrix.env))] || secrets.TF_VAR_BUCKET_NAME }}" \
+            -var="bucket_name=${{ steps.bucket.outputs.name }}" \
             -out=tfplan.binary
 
       - name: Terraform apply
