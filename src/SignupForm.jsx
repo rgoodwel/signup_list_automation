@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   addSignupToWeek,
   getCurrentWeekKey,
@@ -6,27 +6,13 @@ import {
   removePlayerFromHole,
   movePlayerBetweenHoles,
   weekKeyToLabel,
-  isInSignupWindow,
-  getNextWindowOpenDate,
-  autoOpenWeekIfNeeded,
+  weekKeyToRoundDateLabel,
   isFullName,
   HOLE_COUNT,
   HOLE_CAPACITY,
   B_GROUP_THRESHOLD,
   areBGroupsUnlocked,
 } from './storage'
-
-function formatReopenTime(date) {
-  return date.toLocaleString('en-US', {
-    timeZone: 'America/New_York',
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  })
-}
 
 /**
  * Centered modal popup used for all error/warning messages.
@@ -163,28 +149,17 @@ export default function SignupForm({ players, onSignedUp }) {
   const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text } — success banner only
   const [popup, setPopup] = useState(null) // { title, message, hint? } — error modal
-  const [, forceUpdate]   = useState(0)    // used to re-check window on interval
+  const [, forceUpdate]   = useState(0)    // used to refresh local derived state
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
     .map(p => ({ name: p.name, email: p.email }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  // Auto-open the week when the window is active; re-check every minute
-  useEffect(() => {
-    autoOpenWeekIfNeeded()
-    const id = setInterval(() => {
-      autoOpenWeekIfNeeded()
-      forceUpdate(n => n + 1)
-    }, 60_000)
-    return () => clearInterval(id)
-  }, [])
-
-  const windowOpen = isInSignupWindow()
   const weekKey    = getCurrentWeekKey()
   const week       = weekKey ? getWeek(weekKey) : null
-  const isClosed   = !windowOpen || !weekKey || (week && week.closedAt)
-  const reopenDate = isClosed ? getNextWindowOpenDate() : null
+  const isClosed   = !weekKey || (week && week.closedAt)
+  const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
   const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
   const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
   const holes = week?.holes || Object.fromEntries(holeKeys.map(k => [k, []]))
@@ -293,7 +268,7 @@ export default function SignupForm({ players, onSignedUp }) {
         hint = 'Enter both first and last names for every player (e.g., "Jane Smith").'
       } else if (reason.includes("closed") || reason.includes("not found")) {
         title = 'Signups Unavailable'
-        hint = 'Signups are only open Tuesday 3 PM – Sunday 3 PM Eastern. Please check back during that window.'
+        hint = 'Signups are currently locked by an administrator. Please check back later.'
       }
 
       showError(title, reason, hint)
@@ -373,16 +348,13 @@ export default function SignupForm({ players, onSignedUp }) {
       {isClosed ? (
         <div className="closed-notice">
           <p className="week-closed-notice">🔒 Signups are currently closed.</p>
-          {reopenDate && (
-            <p className="reopen-notice">
-              Signups open <strong>{formatReopenTime(reopenDate)}</strong>
-            </p>
-          )}
+          <p className="reopen-notice">An administrator must unlock signups before players can register.</p>
         </div>
       ) : (
         <>
           <p className="week-open-notice">
             Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
+            {roundDateLabel ? <> ({roundDateLabel})</> : null}
           </p>
           <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
