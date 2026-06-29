@@ -298,7 +298,7 @@ After apply completes:
 
 ---
 
-### Step 8: Custom Domain (Optional)
+### Step 7: Custom Domain (Optional)
 
 1. Register/transfer your domain to Route 53 (or set up a hosted zone for an external domain)
 2. Get the hosted zone ID from Route 53 console
