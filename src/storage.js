@@ -282,7 +282,10 @@ function hasMeaningfulData(snapshot) {
 
 async function fetchBackendSnapshot() {
   const res = await fetch(BACKEND_ENDPOINT, { method: 'GET' })
-  if (!res.ok) throw new Error(`GET ${BACKEND_ENDPOINT} failed with ${res.status}`)
+  if (!res.ok) {
+    const details = await res.text().catch(() => '')
+    throw new Error(`GET ${BACKEND_ENDPOINT} failed with ${res.status} ${res.statusText}${details ? `: ${details}` : ''}`)
+  }
   const data = await res.json()
   return data?.state || null
 }
@@ -293,7 +296,10 @@ async function saveBackendSnapshot(snapshot) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ state: snapshot }),
   })
-  if (!res.ok) throw new Error(`POST ${BACKEND_ENDPOINT} failed with ${res.status}`)
+  if (!res.ok) {
+    const details = await res.text().catch(() => '')
+    throw new Error(`POST ${BACKEND_ENDPOINT} failed with ${res.status} ${res.statusText}${details ? `: ${details}` : ''}`)
+  }
 }
 
 async function persistBackendSafely() {
@@ -301,7 +307,7 @@ async function persistBackendSafely() {
   try {
     await saveBackendSnapshot(getLocalSnapshot())
   } catch (err) {
-    console.warn('Unable to persist signup data to backend. Local changes were kept.', err)
+    console.warn('Unable to persist signup data to backend. Backend sync failed but local changes were saved.', err)
   }
 }
 
@@ -395,9 +401,10 @@ function upsertPlayerLocal({ name, email }) {
 }
 
 export async function upsertPlayer({ name, email }) {
-  const player = upsertPlayerLocal({ name, email })
+  const key = email.trim().toLowerCase()
+  upsertPlayerLocal({ name, email })
   await persistBackendSafely()
-  return player
+  return getPlayers()[key] || null
 }
 
 // ── Weeks ───────────────────────────────────────────────────────────────────

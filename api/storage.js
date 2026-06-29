@@ -35,7 +35,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const payload = req.body?.state ?? req.body
+      const payload = req.body?.state
+      if (!payload || typeof payload !== 'object') {
+        return res.status(400).json({ error: 'Request body must include a `state` object.' })
+      }
       const state = normalizeState(payload)
       await redis.set(STORAGE_KEY, state)
       return res.status(200).json({ ok: true, state })

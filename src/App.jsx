@@ -30,7 +30,7 @@ export default function App() {
     return (
       <div className="container">
         <main>
-          <p className="muted">Loading signup data…</p>
+          <p className="muted">Loading signup data...</p>
         </main>
       </div>
     )
