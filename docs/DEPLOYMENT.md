@@ -34,7 +34,7 @@
 │   (us-east-1)       │  Versioning enabled, AES-256 encryption
 └─────────────────────┘
 
-Optional (custom domain path):
+Optional (custom domain path, deferred for now):
   Route 53 → CloudFront alias
   ACM (us-east-1) → CloudFront viewer cert
 ```
@@ -85,12 +85,11 @@ infra/
     │   ├── outputs.tf
     │   ├── terraform.tfvars.example
     │   └── backend.hcl.example
-    ├── stage/                    # Stage environment (same structure)
     └── prod/                     # Prod environment (same structure)
 ```
 
 ### Key Design Decisions
-- **Per-env state keys**: `dev/terraform.tfstate`, `stage/terraform.tfstate`, `prod/terraform.tfstate` — all in one state bucket but isolated.
+- **Per-env state keys**: `dev/terraform.tfstate`, `prod/terraform.tfstate` — all in one state bucket but isolated.
 - **OAC over OAI**: Origin Access Control is the modern AWS recommendation (OAI is legacy).
 - **`PriceClass_100`**: US/EU CloudFront PoPs only — cheapest option, fine for most golf leagues.
 - **Security headers**: Applied via CloudFront response headers policy (CSP, HSTS, X-Frame-Options, etc.)
@@ -167,13 +166,10 @@ Go to **Settings → Secrets and variables → Actions** and add:
 | `TF_STATE_BUCKET` | State bucket name | Repository |
 | `TF_STATE_LOCK_TABLE` | `golf-league-tf-lock` | Repository |
 | `TF_VAR_BUCKET_NAME_DEV` | Dev S3 app bucket name | Repository |
-| `TF_VAR_BUCKET_NAME_STAGE` | Stage S3 app bucket name | Repository |
 | `TF_VAR_BUCKET_NAME_PROD` | Prod S3 app bucket name | Repository |
 | `S3_BUCKET_DEV` | Dev S3 app bucket name | `dev` environment |
-| `S3_BUCKET_STAGE` | Stage S3 app bucket name | `stage` environment |
 | `S3_BUCKET_PROD` | Prod S3 app bucket name | `prod` environment |
 | `CF_DISTRIBUTION_ID_DEV` | Dev CloudFront dist ID | `dev` environment |
-| `CF_DISTRIBUTION_ID_STAGE` | Stage CloudFront dist ID | `stage` environment |
 | `CF_DISTRIBUTION_ID_PROD` | Prod CloudFront dist ID | `prod` environment |
 
 ### Required GitHub Environments
@@ -184,8 +180,6 @@ Go to **Settings → Environments** and create:
 |-------------|------------|-------|
 | `dev` | None | Auto-deploys from main |
 | `dev-plan` | None | For plan jobs |
-| `stage` | None | Auto-deploys after dev succeeds |
-| `stage-plan` | None | For plan jobs |
 | `prod` | **Required reviewer(s)** | Manual dispatch only |
 | `prod-plan` | Required reviewer(s) | For plan jobs |
 
@@ -229,7 +223,7 @@ terraform output
 
 ```bash
 # 2a. In GitHub: Settings → Environments
-#     Create: dev, dev-plan, stage, stage-plan, prod, prod-plan
+#     Create: dev, dev-plan, prod, prod-plan
 #     Add required reviewers to "prod" and "prod-plan"
 
 # 2b. Settings → Secrets and variables → Actions
@@ -246,7 +240,6 @@ terraform output
 Choose unique names now (they must be globally unique in S3):
 ```
 golf-league-dev-site-<4-random-chars>
-golf-league-stage-site-<4-random-chars>
 golf-league-prod-site-<4-random-chars>
 ```
 Add these as GitHub secrets (`TF_VAR_BUCKET_NAME_DEV`, etc.) and also as `S3_BUCKET_DEV`, etc.
@@ -290,20 +283,7 @@ After apply completes:
 
 ---
 
-### Step 6: Promote to Stage
-
-```bash
-# Terraform (if infra differs):
-# GitHub → Actions → "Terraform Apply" → environment: stage → confirm: apply
-
-# App deploy:
-# Happens automatically after dev deploy succeeds on push to main
-# Or: GitHub → Actions → "Deploy" → environment: stage
-```
-
----
-
-### Step 7: Promote to Prod
+### Step 6: Promote to Prod
 
 ```bash
 # Requires manual approval from environment reviewers
@@ -338,13 +318,11 @@ After apply completes:
 | Environment | Purpose | Deploy Trigger | Terraform |
 |-------------|---------|----------------|-----------|
 | **dev** | Development, testing | Auto on push to main | Auto on main |
-| **stage** | Pre-prod validation | Auto after dev succeeds | Auto on main |
 | **prod** | Live users | Manual dispatch + approval | Manual dispatch |
 
 ### Phased Rollout
 1. **Phase 1** (now): Deploy dev only. Validate everything works.
-2. **Phase 2** (week 2): Add stage. Validate before prod.
-3. **Phase 3** (when ready): Add prod with required reviewers.
+2. **Phase 2** (when ready): Add prod with required reviewers.
 
 ---
 
@@ -354,7 +332,7 @@ For a small private golf league (low traffic):
 
 | Service | Config | Est. Monthly Cost |
 |---------|--------|-------------------|
-| S3 (3 envs) | ~50 MB assets, <1 GB transfer | ~$0.01–$0.05 |
+| S3 (2 envs) | ~50 MB assets, <1 GB transfer | ~$0.01–$0.05 |
 | CloudFront | PriceClass_100, <1 GB/month transfer | ~$0.08–$0.50 |
 | DynamoDB | On-demand, state lock only (minimal ops) | ~$0.00–$0.01 |
 | ACM | Free (always free) | $0.00 |

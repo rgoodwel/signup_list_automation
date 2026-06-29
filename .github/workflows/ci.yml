@@ -68,7 +68,7 @@ jobs:
         run: terraform fmt -check -recursive infra/
 
   ###########################################################################
-  # Terraform validate (all envs)
+  # Terraform validate (dev + prod)
   ###########################################################################
   tf-validate:
     name: Terraform Validate (${{ matrix.env }})
@@ -76,7 +76,7 @@ jobs:
     needs: tf-fmt
     strategy:
       matrix:
-        env: [dev, stage, prod]
+        env: [dev, prod]
     steps:
       - uses: actions/checkout@v4
 
@@ -105,7 +105,6 @@ jobs:
           - infra/bootstrap
           - infra/modules/static-site
           - infra/envs/dev
-          - infra/envs/stage
           - infra/envs/prod
     steps:
       - uses: actions/checkout@v4

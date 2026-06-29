@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env: [dev, stage, prod]
+        env: [dev, prod]
 
     environment: ${{ matrix.env }}-plan
 
@@ -69,7 +69,6 @@ jobs:
         run: |
           case "${{ matrix.env }}" in
             dev)   echo "name=${{ secrets.TF_VAR_BUCKET_NAME_DEV }}" >> $GITHUB_OUTPUT ;;
-            stage) echo "name=${{ secrets.TF_VAR_BUCKET_NAME_STAGE }}" >> $GITHUB_OUTPUT ;;
             prod)  echo "name=${{ secrets.TF_VAR_BUCKET_NAME_PROD }}" >> $GITHUB_OUTPUT ;;
           esac
 

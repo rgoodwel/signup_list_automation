@@ -3,13 +3,13 @@
 #
 # Applies Terraform for a specific environment.
 # Triggered:
-#   - Automatically for dev/stage on push to main (after CI passes)
+#   - Automatically for dev on push to main (after CI passes)
 #   - Manually for any environment via workflow_dispatch
 #   - Prod requires "prod" GitHub environment with required reviewers
 #
 # Required GitHub secrets (same as terraform-plan.yml):
 #   AWS_ROLE_ARN, TF_STATE_BUCKET, TF_STATE_LOCK_TABLE,
-#   TF_VAR_BUCKET_NAME_DEV, TF_VAR_BUCKET_NAME_STAGE, TF_VAR_BUCKET_NAME_PROD
+#   TF_VAR_BUCKET_NAME_DEV, TF_VAR_BUCKET_NAME_PROD
 #   AWS_REGION
 ###############################################################################
 name: Terraform Apply
@@ -26,7 +26,7 @@ on:
         description: "Target environment"
         required: true
         type: choice
-        options: [dev, stage, prod]
+        options: [dev, prod]
       confirm:
         description: "Type 'apply' to confirm"
         required: true
@@ -56,8 +56,8 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "envs=[\"${{ github.event.inputs.environment }}\"]" >> $GITHUB_OUTPUT
           else
-            # Auto: push to main applies dev, then stage sequentially
-            echo "envs=[\"dev\",\"stage\"]" >> $GITHUB_OUTPUT
+            # Auto: push to main applies dev
+            echo "envs=[\"dev\"]" >> $GITHUB_OUTPUT
           fi
 
   ###########################################################################
@@ -123,7 +123,6 @@ jobs:
         run: |
           case "${{ matrix.env }}" in
             dev)   echo "name=${{ secrets.TF_VAR_BUCKET_NAME_DEV }}" >> $GITHUB_OUTPUT ;;
-            stage) echo "name=${{ secrets.TF_VAR_BUCKET_NAME_STAGE }}" >> $GITHUB_OUTPUT ;;
             prod)  echo "name=${{ secrets.TF_VAR_BUCKET_NAME_PROD }}" >> $GITHUB_OUTPUT ;;
           esac
 
