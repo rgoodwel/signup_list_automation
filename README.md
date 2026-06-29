@@ -1,6 +1,6 @@
 # Signup List Automation (Golf League)
 
-This React + Vite app implements a weekly golf-league signup system. It stores groups of players (names + emails) in browser localStorage and includes rules to form and manage groups for play across 9 holes.
+This React + Vite app implements a weekly golf-league signup system. It now uses a Vercel backend API (`/api/storage`) for shared persistent storage and keeps browser localStorage as a fallback/cache layer.
 
 New/updated features
 
@@ -11,10 +11,22 @@ New/updated features
 - Holes display: UI initially shows all 9 holes (1..9). Groups are assigned in round-robin order across holes. When more than 9 groups exist, holes receive multiple groups (A/B labels)
 - Signup locking is now fully admin-controlled from the admin page. Admins manually unlock/lock signups for the current week.
 
-Storage keys
+Storage keys / backend state
 
-- Groups: `signup_list_automation.groups_v3`
-- Profiles: `signup_list_automation.profiles_v1`
+- Browser cache keys:
+  - `sla.players`
+  - `sla.weeks`
+  - `sla.currentWeekKey`
+  - `sla.adminPin`
+- Backend key (Redis): `sla:state:v1`
+
+Vercel backend setup
+
+- Add a Redis integration (Upstash via Vercel Marketplace) and set:
+  - `KV_REST_API_URL`
+  - `KV_REST_API_TOKEN`
+- The app hydrates from `/api/storage` on load.
+- If backend storage is empty, existing local browser data is used to seed backend state.
 
 Security note
 

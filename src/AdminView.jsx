@@ -12,7 +12,7 @@ function PinSetup({ onSet }) {
   const [confirm, setConfirm] = useState('')
   const [err, setErr]     = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     if (pin.length < 6) { setErr('PIN must be at least 6 characters.'); return }
     if (!/[a-zA-Z]/.test(pin) || !/[0-9]/.test(pin)) {
@@ -20,7 +20,7 @@ function PinSetup({ onSet }) {
       return
     }
     if (pin !== confirm) { setErr('PINs do not match.'); return }
-    setAdminPin(pin)
+    await setAdminPin(pin)
     onSet()
   }
 

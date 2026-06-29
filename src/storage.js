@@ -8,6 +8,7 @@ const KEYS = {
   current: 'sla.currentWeekKey', // string | null
   pin:     'sla.adminPin',      // string | null
 }
+const BACKEND_ENDPOINT = '/api/storage'
 
 export const HOLE_COUNT = 9
 export const HOLE_CAPACITY = 4
@@ -253,6 +254,88 @@ function write(key, value) {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
+function getLocalSnapshot() {
+  return {
+    players: read(KEYS.players, {}),
+    weeks: read(KEYS.weeks, {}),
+    currentWeekKey: read(KEYS.current, null),
+    adminPin: read(KEYS.pin, null),
+  }
+}
+
+function applySnapshot(snapshot) {
+  write(KEYS.players, snapshot.players || {})
+  write(KEYS.weeks, snapshot.weeks || {})
+  write(KEYS.current, snapshot.currentWeekKey || null)
+  write(KEYS.pin, snapshot.adminPin || null)
+}
+
+function hasMeaningfulData(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return false
+  return (
+    Object.keys(snapshot.players || {}).length > 0 ||
+    Object.keys(snapshot.weeks || {}).length > 0 ||
+    Boolean(snapshot.currentWeekKey) ||
+    Boolean(snapshot.adminPin)
+  )
+}
+
+async function fetchBackendSnapshot() {
+  const res = await fetch(BACKEND_ENDPOINT, { method: 'GET' })
+  if (!res.ok) throw new Error(`GET ${BACKEND_ENDPOINT} failed with ${res.status}`)
+  const data = await res.json()
+  return data?.state || null
+}
+
+async function saveBackendSnapshot(snapshot) {
+  const res = await fetch(BACKEND_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ state: snapshot }),
+  })
+  if (!res.ok) throw new Error(`POST ${BACKEND_ENDPOINT} failed with ${res.status}`)
+}
+
+async function persistBackendSafely() {
+  if (typeof fetch !== 'function') return
+  try {
+    await saveBackendSnapshot(getLocalSnapshot())
+  } catch (err) {
+    console.warn('Unable to persist signup data to backend. Local changes were kept.', err)
+  }
+}
+
+export async function initializeStorage() {
+  migrateIfNeeded()
+  if (typeof fetch !== 'function') return
+
+  const localSnapshot = getLocalSnapshot()
+  try {
+    const backendSnapshot = await fetchBackendSnapshot()
+    if (hasMeaningfulData(backendSnapshot)) {
+      applySnapshot(backendSnapshot)
+      return
+    }
+    if (hasMeaningfulData(localSnapshot)) {
+      await saveBackendSnapshot(localSnapshot)
+    }
+  } catch (err) {
+    console.warn('Backend storage unavailable; continuing with local data.', err)
+  }
+}
+
+export async function refreshFromBackend() {
+  if (typeof fetch !== 'function') return
+  try {
+    const backendSnapshot = await fetchBackendSnapshot()
+    if (hasMeaningfulData(backendSnapshot)) {
+      applySnapshot(backendSnapshot)
+    }
+  } catch (err) {
+    console.warn('Could not refresh from backend; using local data.', err)
+  }
+}
+
 // ── Migration from old flat-array schema ────────────────────────────────────
 
 /**
@@ -299,7 +382,7 @@ export function getPlayers() {
 }
 
 /** Upsert a player. Updates name if already present. */
-export function upsertPlayer({ name, email }) {
+function upsertPlayerLocal({ name, email }) {
   const players = getPlayers()
   const key = email.trim().toLowerCase()
   if (!players[key]) {
@@ -309,6 +392,12 @@ export function upsertPlayer({ name, email }) {
   }
   write(KEYS.players, players)
   return players[key]
+}
+
+export async function upsertPlayer({ name, email }) {
+  const player = upsertPlayerLocal({ name, email })
+  await persistBackendSafely()
+  return player
 }
 
 // ── Weeks ───────────────────────────────────────────────────────────────────
@@ -329,7 +418,7 @@ export function getWeek(weekKey) {
 }
 
 /** Open a new week; returns the new weekKey. Closes any previously open week. */
-export function openWeek(weekKey) {
+export async function openWeek(weekKey) {
   const weeks = getWeeks()
   // Close any open week
   for (const k of Object.keys(weeks)) {
@@ -351,17 +440,19 @@ export function openWeek(weekKey) {
   }
   write(KEYS.weeks, weeks)
   write(KEYS.current, weekKey)
+  await persistBackendSafely()
   return weekKey
 }
 
 /** Close the current week without opening a new one. */
-export function closeCurrentWeek() {
+export async function closeCurrentWeek() {
   const key = getCurrentWeekKey()
   if (!key) return
   const weeks = getWeeks()
   if (weeks[key]) weeks[key].closedAt = Date.now()
   write(KEYS.weeks, weeks)
   write(KEYS.current, null)
+  await persistBackendSafely()
 }
 
 // ── Current week ─────────────────────────────────────────────────────────────
@@ -374,7 +465,7 @@ export function getCurrentWeekKey() {
  * Add a signup to the current week.
  * Returns { ok: true } or { ok: false, reason: string }.
  */
-export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
+export async function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   const weekKey = getCurrentWeekKey()
   if (!weekKey) return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
 
@@ -502,7 +593,7 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
   const signupId = createId()
 
   // Upsert player
-  upsertPlayer({ name, email: emailKey })
+  upsertPlayerLocal({ name, email: emailKey })
 
   // Add to week
   week.signups.push({
@@ -547,11 +638,12 @@ export function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
     players[emailKey].weeksPlayed.push(weekKey)
     write(KEYS.players, players)
   }
+  await persistBackendSafely()
 
   return { ok: true }
 }
 
-export function removePlayerFromHole({ weekKey, hole, playerId }) {
+export async function removePlayerFromHole({ weekKey, hole, playerId }) {
   const weeks = getWeeks()
   const week = weeks[weekKey]
   if (!week) return { ok: false, reason: 'Week record not found.' }
@@ -574,10 +666,11 @@ export function removePlayerFromHole({ weekKey, hole, playerId }) {
   }
 
   write(KEYS.weeks, weeks)
+  await persistBackendSafely()
   return { ok: true }
 }
 
-export function movePlayerBetweenHoles({ weekKey, fromHole, toHole, playerId }) {
+export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, playerId }) {
   const weeks = getWeeks()
   const week = weeks[weekKey]
   if (!week) return { ok: false, reason: 'Week record not found.' }
@@ -606,6 +699,7 @@ export function movePlayerBetweenHoles({ weekKey, fromHole, toHole, playerId }) 
   }
 
   write(KEYS.weeks, weeks)
+  await persistBackendSafely()
   return { ok: true }
 }
 
@@ -615,8 +709,9 @@ export function getAdminPin() {
   return read(KEYS.pin, null)
 }
 
-export function setAdminPin(pin) {
+export async function setAdminPin(pin) {
   write(KEYS.pin, pin)
+  await persistBackendSafely()
 }
 
 // ── Computed stats ───────────────────────────────────────────────────────────
