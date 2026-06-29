@@ -173,7 +173,7 @@ export default function SignupForm({ players, onSignedUp }) {
     setPopup({ title, message, hint: hint || null })
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
 
     if (!name.trim() || !email.trim()) {
@@ -225,7 +225,7 @@ export default function SignupForm({ players, onSignedUp }) {
       seenNames.add(norm)
     }
 
-    const result = addSignupToWeek({
+    const result = await addSignupToWeek({
       name,
       email,
       hole,
@@ -238,7 +238,7 @@ export default function SignupForm({ players, onSignedUp }) {
       setHole('AUTO')
       setAdditionalPlayers(['', '', ''])
       setAdditionalCount(0)
-      if (onSignedUp) onSignedUp()
+      if (onSignedUp) await onSignedUp()
     } else {
       // Map storage reasons to user-friendly titles and hints
       const reason = result.reason || 'Something went wrong. Please try again.'
@@ -296,13 +296,13 @@ export default function SignupForm({ players, onSignedUp }) {
     setAdditionalCount(count => Math.max(0, count - 1))
   }
 
-  function handleRemove(holeKey, player) {
+  async function handleRemove(holeKey, player) {
     if (!weekKey) return
     if (!confirm(`Remove ${player.name} from Hole ${holeKey}?`)) return
-    const result = removePlayerFromHole({ weekKey, hole: holeKey, playerId: player.id })
+    const result = await removePlayerFromHole({ weekKey, hole: holeKey, playerId: player.id })
     if (result.ok) {
       setMsg({ type: 'success', text: `${player.name} was removed.` })
-      if (onSignedUp) onSignedUp()
+      if (onSignedUp) await onSignedUp()
       forceUpdate(n => n + 1)
     } else {
       showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact an administrator.')
@@ -313,20 +313,20 @@ export default function SignupForm({ players, onSignedUp }) {
     e.dataTransfer.setData('text/plain', JSON.stringify({ holeKey, playerId }))
   }
 
-  function handleDrop(e, toHole) {
+  async function handleDrop(e, toHole) {
     e.preventDefault()
     if (!weekKey) return
     try {
       const raw = e.dataTransfer.getData('text/plain')
       const data = JSON.parse(raw)
-      const result = movePlayerBetweenHoles({
+      const result = await movePlayerBetweenHoles({
         weekKey,
         fromHole: data.holeKey,
         toHole,
         playerId: data.playerId,
       })
       if (result.ok) {
-        if (onSignedUp) onSignedUp()
+        if (onSignedUp) await onSignedUp()
         forceUpdate(n => n + 1)
       } else {
         showError(

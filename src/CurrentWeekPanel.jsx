@@ -13,16 +13,16 @@ export default function CurrentWeekPanel({ onRefresh }) {
   const week    = weekKey ? getWeek(weekKey) : null
   const isOpen  = weekKey && week && !week.closedAt
 
-  function handleOpen() {
+  async function handleOpen() {
     const key = weekKeyFromDate()
-    openWeek(key)
-    if (onRefresh) onRefresh()
+    await openWeek(key)
+    if (onRefresh) await onRefresh()
   }
 
-  function handleClose() {
+  async function handleClose() {
     if (!confirm('Close signups for the current week?')) return
-    closeCurrentWeek()
-    if (onRefresh) onRefresh()
+    await closeCurrentWeek()
+    if (onRefresh) await onRefresh()
   }
 
   return (
