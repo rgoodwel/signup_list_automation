@@ -12,11 +12,11 @@ export default function SupabaseTest() {
       try {
         // Test 1: Check connection
         setStatus('1. Testing Supabase connection...')
-        const url = import.meta.env.VITE_SUPABASE_URL
-        const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+        const url = __SUPABASE_URL__
+        const key = __SUPABASE_ANON_KEY__
 
         if (!url || !key) {
-          throw new Error('Missing Supabase environment variables (VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY)')
+          throw new Error('Missing Supabase environment variables (SUPABASE_URL or SUPABASE_ANON_KEY)')
         }
 
         // Test 2: List available tables
@@ -74,8 +74,8 @@ export default function SupabaseTest() {
       <div style={{ marginBottom: '15px' }}>
         <strong>Environment Variables:</strong>
         <div style={{ background: '#fff', padding: '10px', borderRadius: '4px', marginTop: '5px' }}>
-          <div>VITE_SUPABASE_URL: <code>{import.meta.env.VITE_SUPABASE_URL || '❌ NOT SET'}</code></div>
-          <div>VITE_SUPABASE_ANON_KEY: <code>{import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ SET' : '❌ NOT SET'}</code></div>
+          <div>SUPABASE_URL: <code>{__SUPABASE_URL__ || '❌ NOT SET'}</code></div>
+          <div>SUPABASE_ANON_KEY: <code>{__SUPABASE_ANON_KEY__ ? '✅ SET' : '❌ NOT SET'}</code></div>
         </div>
       </div>
 
