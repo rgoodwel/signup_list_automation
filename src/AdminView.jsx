@@ -6,11 +6,11 @@ import TrendChart from './TrendChart'
 import ExportButtons from './ExportButtons'
 
 // ── PIN gate ──────────────────────────────────────────────────────────────────
-
 function PinSetup({ onSet }) {
   const [pin, setPin]     = useState('')
   const [confirm, setConfirm] = useState('')
   const [err, setErr]     = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -20,8 +20,19 @@ function PinSetup({ onSet }) {
       return
     }
     if (pin !== confirm) { setErr('PINs do not match.'); return }
-    await setAdminPin(pin)
-    onSet()
+    
+    try {
+      setLoading(true)
+      setErr('')
+      await setAdminPin(pin)
+      console.log('✓ PIN saved successfully')
+      onSet()
+    } catch (error) {
+      console.error('✗ Failed to set PIN:', error)
+      setErr('Failed to save PIN. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -35,14 +46,18 @@ function PinSetup({ onSet }) {
           value={pin}
           onChange={e => { setPin(e.target.value); setErr('') }}
           autoFocus
+          disabled={loading}
         />
         <input
           type="password"
           placeholder="Confirm PIN"
           value={confirm}
           onChange={e => { setConfirm(e.target.value); setErr('') }}
+          disabled={loading}
         />
-        <button type="submit" className="btn btn-primary">Set PIN</button>
+        <button type="submit" className="btn btn-primary" disabled={loading}>
+          {loading ? 'Saving...' : 'Set PIN'}
+        </button>
       </form>
       {err && <p className="form-msg form-msg--error">{err}</p>}
     </div>
