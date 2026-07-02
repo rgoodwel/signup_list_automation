@@ -11,8 +11,8 @@ import {
   HOLE_COUNT,
   HOLE_CAPACITY,
   B_GROUP_THRESHOLD,
-  areBGroupsUnlocked,
 } from './storage'
+import { supabase } from './utils/supabaseClient'
 
 /**
  * Centered modal popup used for all error/warning messages.
@@ -62,7 +62,7 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
 
   const filtered = value.trim().length > 0
     ? suggestions.filter(s =>
-        s.name.toLowerCase().includes(value.trim().toLowerCase())
+        (s?.name || '').toLowerCase().includes(value.trim().toLowerCase())
       )
     : []
 
@@ -147,23 +147,77 @@ export default function SignupForm({ players, onSignedUp }) {
   const [hole, setHole] = useState('AUTO')
   const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
   const [additionalCount, setAdditionalCount] = useState(0)
-  const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text } — success banner only
-  const [popup, setPopup] = useState(null) // { title, message, hint? } — error modal
-  const [, forceUpdate]   = useState(0)    // used to refresh local derived state
+  const [msg, setMsg]     = useState(null)
+  const [popup, setPopup] = useState(null)
+
+  // Async state for current week
+  const [weekKey, setWeekKey] = useState(null)
+  const [week, setWeek] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [holes, setHoles] = useState({})
+
+  // Define hole keys early so they can be used in useEffect
+  const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
+  const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
+
+  // Fetch current week and populate holes display on mount/refresh
+  useEffect(() => {
+    async function loadWeek() {
+      try {
+        setLoading(true)
+        const key = await getCurrentWeekKey()
+        setWeekKey(key)
+        if (key) {
+          const w = await getWeek(key)
+          setWeek(w)
+          
+          // Fetch players and populate holes display
+          const { data: weeklyPlayers, error } = await supabase
+            .from('weekly_players')
+            .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+            .eq('week_number', key)
+          
+          if (!error && weeklyPlayers) {
+            const holesMap = Object.fromEntries(
+              holeKeys.concat(bHoleKeys).map(k => [k, []])
+            )
+            // Group players by hole
+            for (const row of weeklyPlayers) {
+              const holeKey = row.hole_group === 'B' ? `${row.hole_number}B` : row.hole_number
+              if (holesMap[holeKey]) {
+                holesMap[holeKey].push({
+                  id: row.id,
+                  name: row.player_name,
+                  email: row.player_email,
+                  isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+                })
+              }
+            }
+            setHoles(holesMap)
+          }
+        } else {
+          setWeek(null)
+        }
+      } catch (err) {
+        console.error('Error loading week:', err)
+        setWeekKey(null)
+        setWeek(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadWeek()
+  }, [])
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
-    .map(p => ({ name: p.name, email: p.email }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '' }))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
-  const weekKey    = getCurrentWeekKey()
-  const week       = weekKey ? getWeek(weekKey) : null
+  // Derived state from week data
   const isClosed   = !weekKey || (week && week.closedAt)
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
-  const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
-  const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
-  const holes = week?.holes || Object.fromEntries(holeKeys.map(k => [k, []]))
-  const bUnlocked = week ? areBGroupsUnlocked(week) : false
+  const bUnlocked = week?.b_groups_unlocked || false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalAllPlayers = totalAPlayers + totalBPlayers
@@ -171,6 +225,36 @@ export default function SignupForm({ players, onSignedUp }) {
 
   function showError(title, message, hint) {
     setPopup({ title, message, hint: hint || null })
+  }
+
+  async function reloadHoles() {
+    try {
+      if (!weekKey) return
+      const { data: weeklyPlayers, error } = await supabase
+        .from('weekly_players')
+        .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+        .eq('week_number', weekKey)
+      
+      if (!error && weeklyPlayers) {
+        const holesMap = Object.fromEntries(
+          holeKeys.concat(bHoleKeys).map(k => [k, []])
+        )
+        for (const row of weeklyPlayers) {
+          const holeKey = row.hole_group === 'B' ? `${row.hole_number}B` : row.hole_number
+          if (holesMap[holeKey]) {
+            holesMap[holeKey].push({
+              id: row.id,
+              name: row.player_name,
+              email: row.player_email,
+              isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+            })
+          }
+        }
+        setHoles(holesMap)
+      }
+    } catch (err) {
+      console.error('Error reloading holes:', err)
+    }
   }
 
   async function handleSubmit(e) {
@@ -238,6 +322,7 @@ export default function SignupForm({ players, onSignedUp }) {
       setHole('AUTO')
       setAdditionalPlayers(['', '', ''])
       setAdditionalCount(0)
+      await reloadHoles()
       if (onSignedUp) await onSignedUp()
     } else {
       // Map storage reasons to user-friendly titles and hints
@@ -345,7 +430,11 @@ export default function SignupForm({ players, onSignedUp }) {
   return (
     <section>
       <AlertModal popup={popup} onClose={() => setPopup(null)} />
-      {isClosed ? (
+      {loading ? (
+        <div className="closed-notice">
+          <p className="week-closed-notice">⏳ Loading signup information...</p>
+        </div>
+      ) : isClosed ? (
         <div className="closed-notice">
           <p className="week-closed-notice">🔒 Signups are currently closed.</p>
           <p className="reopen-notice">An administrator must unlock signups before players can register.</p>
@@ -384,7 +473,7 @@ export default function SignupForm({ players, onSignedUp }) {
                 <optgroup label="Group A">
                   {holeKeys.map(holeKey => (
                     <option key={holeKey} value={holeKey}>
-                      {holeLabel(holeKey, bUnlocked)} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
+                      {holeLabel(holeKey, bUnlocked)}
                     </option>
                   ))}
                 </optgroup>
@@ -392,7 +481,7 @@ export default function SignupForm({ players, onSignedUp }) {
                   <optgroup label="Group B">
                     {bHoleKeys.map(holeKey => (
                       <option key={holeKey} value={holeKey}>
-                        Hole {holeKey} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
+                        Hole {holeKey}
                       </option>
                     ))}
                   </optgroup>

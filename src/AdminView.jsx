@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getAdminPin, setAdminPin } from './storage'
 import CurrentWeekPanel from './CurrentWeekPanel'
 import PlayerHistoryTable from './PlayerHistoryTable'
@@ -6,11 +6,11 @@ import TrendChart from './TrendChart'
 import ExportButtons from './ExportButtons'
 
 // ── PIN gate ──────────────────────────────────────────────────────────────────
-
 function PinSetup({ onSet }) {
   const [pin, setPin]     = useState('')
   const [confirm, setConfirm] = useState('')
   const [err, setErr]     = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -20,8 +20,19 @@ function PinSetup({ onSet }) {
       return
     }
     if (pin !== confirm) { setErr('PINs do not match.'); return }
-    await setAdminPin(pin)
-    onSet()
+    
+    try {
+      setLoading(true)
+      setErr('')
+      await setAdminPin(pin)
+      console.log('✓ PIN saved successfully')
+      onSet()
+    } catch (error) {
+      console.error('✗ Failed to set PIN:', error)
+      setErr('Failed to save PIN. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -35,14 +46,18 @@ function PinSetup({ onSet }) {
           value={pin}
           onChange={e => { setPin(e.target.value); setErr('') }}
           autoFocus
+          disabled={loading}
         />
         <input
           type="password"
           placeholder="Confirm PIN"
           value={confirm}
           onChange={e => { setConfirm(e.target.value); setErr('') }}
+          disabled={loading}
         />
-        <button type="submit" className="btn btn-primary">Set PIN</button>
+        <button type="submit" className="btn btn-primary" disabled={loading}>
+          {loading ? 'Saving...' : 'Set PIN'}
+        </button>
       </form>
       {err && <p className="form-msg form-msg--error">{err}</p>}
     </div>
@@ -53,9 +68,10 @@ function PinLogin({ onSuccess }) {
   const [pin, setPin] = useState('')
   const [err, setErr] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (pin === getAdminPin()) {
+    const storedPin = await getAdminPin()
+    if (pin === storedPin) {
       onSuccess()
     } else {
       setErr('Incorrect PIN.')
@@ -91,9 +107,29 @@ const TABS = [
 ]
 
 export default function AdminView({ players, weeks, onRefresh }) {
-  const savedPin = getAdminPin()
+  const [savedPin, setSavedPin] = useState(null)
   const [authed, setAuthed]   = useState(false)
   const [tab, setTab]         = useState('week')
+  const [loading, setLoading] = useState(true)
+
+  // Load admin PIN on mount
+  useEffect(() => {
+    async function loadPin() {
+      try {
+        const pin = await getAdminPin()
+        setSavedPin(pin)
+      } catch (err) {
+        console.error('Error loading admin PIN:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadPin()
+  }, [])
+
+  if (loading) {
+    return <div className="pin-gate"><p className="muted">Loading...</p></div>
+  }
 
   if (!savedPin) {
     return <PinSetup onSet={() => setAuthed(true)} />
