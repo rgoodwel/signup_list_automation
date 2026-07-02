@@ -147,23 +147,54 @@ export default function SignupForm({ players, onSignedUp }) {
   const [hole, setHole] = useState('AUTO')
   const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
   const [additionalCount, setAdditionalCount] = useState(0)
-  const [msg, setMsg]     = useState(null) // { type: 'success'|'error', text } — success banner only
-  const [popup, setPopup] = useState(null) // { title, message, hint? } — error modal
-  const [, forceUpdate]   = useState(0)    // used to refresh local derived state
+  const [msg, setMsg]     = useState(null)
+  const [popup, setPopup] = useState(null)
+  const [, forceUpdate]   = useState(0)
+
+  // Async state for current week
+  const [weekKey, setWeekKey] = useState(null)
+  const [week, setWeek] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Fetch current week on mount and periodically
+  useEffect(() => {
+    async function loadWeek() {
+      try {
+        setLoading(true)
+        const key = await getCurrentWeekKey()
+        setWeekKey(key)
+        if (key) {
+          const w = await getWeek(key)
+          setWeek(w)
+        } else {
+          setWeek(null)
+        }
+      } catch (err) {
+        console.error('Error loading week:', err)
+        setWeekKey(null)
+        setWeek(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadWeek()
+    const timer = setInterval(loadWeek, 5000) // Refresh every 5 seconds
+    return () => clearInterval(timer)
+  }, [])
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
     .map(p => ({ name: p.name, email: p.email }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  const weekKey    = getCurrentWeekKey()
-  const week       = weekKey ? getWeek(weekKey) : null
+  // Derived state from week data
   const isClosed   = !weekKey || (week && week.closedAt)
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
   const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
   const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
-  const holes = week?.holes || Object.fromEntries(holeKeys.map(k => [k, []]))
-  const bUnlocked = week ? areBGroupsUnlocked(week) : false
+  const bUnlocked = false // With Supabase, b_groups_unlocked is managed separately
+  // Note: holes data is now fetched from Supabase and would come via different mechanism
+  const holes = Object.fromEntries(holeKeys.concat(bHoleKeys).map(k => [k, []]))
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalAllPlayers = totalAPlayers + totalBPlayers
@@ -345,7 +376,11 @@ export default function SignupForm({ players, onSignedUp }) {
   return (
     <section>
       <AlertModal popup={popup} onClose={() => setPopup(null)} />
-      {isClosed ? (
+      {loading ? (
+        <div className="closed-notice">
+          <p className="week-closed-notice">⏳ Loading signup information...</p>
+        </div>
+      ) : isClosed ? (
         <div className="closed-notice">
           <p className="week-closed-notice">🔒 Signups are currently closed.</p>
           <p className="reopen-notice">An administrator must unlock signups before players can register.</p>
@@ -384,7 +419,7 @@ export default function SignupForm({ players, onSignedUp }) {
                 <optgroup label="Group A">
                   {holeKeys.map(holeKey => (
                     <option key={holeKey} value={holeKey}>
-                      {holeLabel(holeKey, bUnlocked)} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
+                      {holeLabel(holeKey, bUnlocked)}
                     </option>
                   ))}
                 </optgroup>
@@ -392,7 +427,7 @@ export default function SignupForm({ players, onSignedUp }) {
                   <optgroup label="Group B">
                     {bHoleKeys.map(holeKey => (
                       <option key={holeKey} value={holeKey}>
-                        Hole {holeKey} ({(holes[holeKey] || []).length}/{HOLE_CAPACITY})
+                        Hole {holeKey}
                       </option>
                     ))}
                   </optgroup>

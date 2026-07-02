@@ -1,14 +1,9 @@
 // ---------------------------------------------------------------------------
-// storage.js — all localStorage helpers for signup_list_automation
+// storage.js — Supabase-based storage for signup_list_automation
+// All operations now use Supabase as the single source of truth
 // ---------------------------------------------------------------------------
 
-const KEYS = {
-  players: 'sla.players',       // { [email]: PlayerRecord }
-  weeks:   'sla.weeks',         // { [weekKey]: WeekRecord }
-  current: 'sla.currentWeekKey', // string | null
-  pin:     'sla.adminPin',      // string | null
-}
-const BACKEND_ENDPOINT = '/api/storage'
+import { supabase } from './utils/supabaseClient'
 
 export const HOLE_COUNT = 9
 export const HOLE_CAPACITY = 4
