@@ -271,14 +271,19 @@ async function countAGroupPlayers(weekKey) {
   }
 }
 
-async function getHolePlayers(weekKey, holeNumber) {
+async function getHolePlayers(weekKey, holeNumber, holeGroup) {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('weekly_players')
       .select('*')
       .eq('week_number', weekKey)
       .eq('hole_number', holeNumber)
     
+    if (holeGroup) {
+      query = query.eq('hole_group', holeGroup)
+    }
+    
+    const { data, error } = await query
     if (error) throw error
     return data || []
   } catch (err) {
@@ -338,7 +343,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     if (autoRequested) {
       if (week.b_groups_unlocked) {
         for (let i = 1; i <= HOLE_COUNT; i++) {
-          const players = await getHolePlayers(weekKey, `${i}B`)
+          const players = await getHolePlayers(weekKey, String(i), 'B')
           if (players.length < HOLE_CAPACITY) {
             holeKey = `${i}B`
             break
@@ -347,7 +352,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       }
       if (!holeKey) {
         for (let i = 1; i <= HOLE_COUNT; i++) {
-          const players = await getHolePlayers(weekKey, String(i))
+          const players = await getHolePlayers(weekKey, String(i), 'A')
           if (players.length < HOLE_CAPACITY) {
             holeKey = String(i)
             break
@@ -385,6 +390,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
 
     const signupId = createId()
     const holeGroup = holeKey.endsWith('B') ? 'B' : 'A'
+    const holeNumber = holeKey.replace(/B$/, '') // Extract numeric part (remove trailing 'B' if present)
 
     const { error: insertError } = await supabase
       .from('weekly_players')
@@ -392,7 +398,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         week_number: weekKey,
         player_name: name.trim(),
         player_email: emailKey,
-        hole_number: holeKey,
+        hole_number: holeNumber,
         hole_group: holeGroup,
         signup_id: signupId,
         is_guest: false,
@@ -408,7 +414,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
           week_number: weekKey,
           player_name: guestName.trim(),
           player_email: null,
-          hole_number: holeKey,
+          hole_number: holeNumber,
           hole_group: holeGroup,
           signup_id: signupId,
           is_guest: true,
@@ -455,17 +461,18 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
     const toKey = normalizeHole(toHole)
     if (!toKey) return { ok: false, reason: 'Invalid hole.' }
 
-    const toPlayers = await getHolePlayers(weekKey, toKey)
+    const toGroup = toKey.endsWith('B') ? 'B' : 'A'
+    const toNumber = toKey.replace(/B$/, '')
+    
+    const toPlayers = await getHolePlayers(weekKey, toNumber, toGroup)
     if (toPlayers.length >= HOLE_CAPACITY) {
       return { ok: false, reason: `Hole ${toKey} is full.` }
     }
 
-    const toGroup = toKey.endsWith('B') ? 'B' : 'A'
-
     const { error } = await supabase
       .from('weekly_players')
       .update({
-        hole_number: toKey,
+        hole_number: toNumber,
         hole_group: toGroup,
       })
       .eq('id', playerId)

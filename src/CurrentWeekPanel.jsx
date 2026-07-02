@@ -85,9 +85,9 @@ export default function CurrentWeekPanel({ onRefresh }) {
         <>
           <p className="week-label">
             <span className="badge badge-green">OPEN</span>{' '}
-            {weekKeyToLabel(weekKey)} &mdash; {week.signups.length} signup(s)
+            {weekKeyToLabel(weekKey)} &mdash; {weeklyPlayers.length} signup(s)
           </p>
-          {week.signups.length === 0 ? (
+          {weeklyPlayers.length === 0 ? (
             <p className="empty">No signups yet this week.</p>
           ) : (
             <table className="data-table">
@@ -96,16 +96,18 @@ export default function CurrentWeekPanel({ onRefresh }) {
                   <th>#</th>
                   <th>Name</th>
                   <th>Email</th>
+                  <th>Hole</th>
                   <th>Signed Up At</th>
                 </tr>
               </thead>
               <tbody>
-                {week.signups.map((s, i) => (
-                  <tr key={s.email}>
+                {weeklyPlayers.map((p, i) => (
+                  <tr key={p.id}>
                     <td>{i + 1}</td>
-                    <td>{s.name}</td>
-                    <td>{s.email}</td>
-                    <td>{new Date(s.signedUpAt).toLocaleString()}</td>
+                    <td>{p.player_name}</td>
+                    <td>{p.player_email || '(guest)'}</td>
+                    <td>{p.hole_number}{p.hole_group === 'B' ? 'B' : ''}</td>
+                    <td>{new Date(p.signed_up_at).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
