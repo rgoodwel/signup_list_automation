@@ -15,7 +15,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
   const [weekKey, setWeekKey] = useState(null)
   const [week, setWeek] = useState(null)
 
-  // Fetch current week and players from Supabase (on mount only)
+  // Fetch current week and players from Supabase
   useEffect(() => {
     async function loadWeekData() {
       try {
@@ -30,7 +30,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
           // Fetch players for this week
           const { data, error } = await supabase
             .from('weekly_players')
-            .select('id, player_name, player_email, hole_number, hole_group, week_number')
+            .select('id, player_name, player_email, hole_number, hole_group, week_number, signed_up_at')
             .eq('week_number', key)
           
           if (error) {
@@ -50,7 +50,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
     }
     
     loadWeekData()
-  }, [])
+  }, [onRefresh])
 
   const isOpen  = weekKey && week && !week.closedAt
 

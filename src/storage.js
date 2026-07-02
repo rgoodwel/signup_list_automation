@@ -382,7 +382,10 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       }
     }
 
-    const holePlayers = await getHolePlayers(weekKey, holeKey)
+    const holeGroup = holeKey.endsWith('B') ? 'B' : 'A'
+    const holeNumber = holeKey.replace(/B$/, '')
+    
+    const holePlayers = await getHolePlayers(weekKey, holeNumber, holeGroup)
     const groupSize = 1 + extras.length
     if (holePlayers.length + groupSize > HOLE_CAPACITY) {
       return {
@@ -392,8 +395,6 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     }
 
     const signupId = createId()
-    const holeGroup = holeKey.endsWith('B') ? 'B' : 'A'
-    const holeNumber = holeKey.replace(/B$/, '') // Extract numeric part (remove trailing 'B' if present)
 
     const { error: insertError } = await supabase
       .from('weekly_players')
