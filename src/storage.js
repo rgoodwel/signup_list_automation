@@ -344,20 +344,20 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     const autoRequested = requestedHole === 'AUTO' || requestedHole === ''
 
     if (autoRequested) {
-      if (week.b_groups_unlocked) {
+      // Always try A-group first (holes 1-9)
+      for (let i = 1; i <= HOLE_COUNT; i++) {
+        const players = await getHolePlayers(weekKey, String(i), 'A')
+        if (players.length < HOLE_CAPACITY) {
+          holeKey = String(i)
+          break
+        }
+      }
+      // If A-group is full and B-group is unlocked, try B-group
+      if (!holeKey && week.b_groups_unlocked) {
         for (let i = 1; i <= HOLE_COUNT; i++) {
           const players = await getHolePlayers(weekKey, String(i), 'B')
           if (players.length < HOLE_CAPACITY) {
             holeKey = `${i}B`
-            break
-          }
-        }
-      }
-      if (!holeKey) {
-        for (let i = 1; i <= HOLE_COUNT; i++) {
-          const players = await getHolePlayers(weekKey, String(i), 'A')
-          if (players.length < HOLE_CAPACITY) {
-            holeKey = String(i)
             break
           }
         }

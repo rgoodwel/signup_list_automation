@@ -12,6 +12,7 @@ import {
   HOLE_CAPACITY,
   B_GROUP_THRESHOLD,
 } from './storage'
+import { supabase } from './utils/supabaseClient'
 
 /**
  * Centered modal popup used for all error/warning messages.
@@ -148,14 +149,18 @@ export default function SignupForm({ players, onSignedUp }) {
   const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
-  const [, forceUpdate]   = useState(0)
 
   // Async state for current week
   const [weekKey, setWeekKey] = useState(null)
   const [week, setWeek] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [holes, setHoles] = useState({})
 
-  // Fetch current week on mount and periodically
+  // Define hole keys early so they can be used in useEffect
+  const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
+  const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
+
+  // Fetch current week and populate holes display on mount/refresh
   useEffect(() => {
     async function loadWeek() {
       try {
@@ -165,6 +170,31 @@ export default function SignupForm({ players, onSignedUp }) {
         if (key) {
           const w = await getWeek(key)
           setWeek(w)
+          
+          // Fetch players and populate holes display
+          const { data: weeklyPlayers, error } = await supabase
+            .from('weekly_players')
+            .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+            .eq('week_number', key)
+          
+          if (!error && weeklyPlayers) {
+            const holesMap = Object.fromEntries(
+              holeKeys.concat(bHoleKeys).map(k => [k, []])
+            )
+            // Group players by hole
+            for (const row of weeklyPlayers) {
+              const holeKey = row.hole_group === 'B' ? `${row.hole_number}B` : row.hole_number
+              if (holesMap[holeKey]) {
+                holesMap[holeKey].push({
+                  id: row.id,
+                  name: row.player_name,
+                  email: row.player_email,
+                  isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+                })
+              }
+            }
+            setHoles(holesMap)
+          }
         } else {
           setWeek(null)
         }
@@ -187,11 +217,7 @@ export default function SignupForm({ players, onSignedUp }) {
   // Derived state from week data
   const isClosed   = !weekKey || (week && week.closedAt)
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
-  const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
-  const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
-  const bUnlocked = false // With Supabase, b_groups_unlocked is managed separately
-  // Note: holes data is now fetched from Supabase and would come via different mechanism
-  const holes = Object.fromEntries(holeKeys.concat(bHoleKeys).map(k => [k, []]))
+  const bUnlocked = week?.b_groups_unlocked || false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalAllPlayers = totalAPlayers + totalBPlayers
@@ -199,6 +225,36 @@ export default function SignupForm({ players, onSignedUp }) {
 
   function showError(title, message, hint) {
     setPopup({ title, message, hint: hint || null })
+  }
+
+  async function reloadHoles() {
+    try {
+      if (!weekKey) return
+      const { data: weeklyPlayers, error } = await supabase
+        .from('weekly_players')
+        .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+        .eq('week_number', weekKey)
+      
+      if (!error && weeklyPlayers) {
+        const holesMap = Object.fromEntries(
+          holeKeys.concat(bHoleKeys).map(k => [k, []])
+        )
+        for (const row of weeklyPlayers) {
+          const holeKey = row.hole_group === 'B' ? `${row.hole_number}B` : row.hole_number
+          if (holesMap[holeKey]) {
+            holesMap[holeKey].push({
+              id: row.id,
+              name: row.player_name,
+              email: row.player_email,
+              isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+            })
+          }
+        }
+        setHoles(holesMap)
+      }
+    } catch (err) {
+      console.error('Error reloading holes:', err)
+    }
   }
 
   async function handleSubmit(e) {
@@ -266,6 +322,7 @@ export default function SignupForm({ players, onSignedUp }) {
       setHole('AUTO')
       setAdditionalPlayers(['', '', ''])
       setAdditionalCount(0)
+      await reloadHoles()
       if (onSignedUp) await onSignedUp()
     } else {
       // Map storage reasons to user-friendly titles and hints
