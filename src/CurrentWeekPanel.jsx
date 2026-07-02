@@ -15,7 +15,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
   const [weekKey, setWeekKey] = useState(null)
   const [week, setWeek] = useState(null)
 
-  // Fetch current week and players from Supabase
+  // Fetch current week and players from Supabase (on mount only)
   useEffect(() => {
     async function loadWeekData() {
       try {
@@ -50,8 +50,6 @@ export default function CurrentWeekPanel({ onRefresh }) {
     }
     
     loadWeekData()
-    const timer = setInterval(loadWeekData, 5000) // Refresh every 5 seconds
-    return () => clearInterval(timer)
   }, [])
 
   const isOpen  = weekKey && week && !week.closedAt

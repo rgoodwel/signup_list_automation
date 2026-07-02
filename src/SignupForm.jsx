@@ -11,7 +11,6 @@ import {
   HOLE_COUNT,
   HOLE_CAPACITY,
   B_GROUP_THRESHOLD,
-  areBGroupsUnlocked,
 } from './storage'
 
 /**
@@ -178,8 +177,6 @@ export default function SignupForm({ players, onSignedUp }) {
       }
     }
     loadWeek()
-    const timer = setInterval(loadWeek, 5000) // Refresh every 5 seconds
-    return () => clearInterval(timer)
   }, [])
 
   // Sorted list of known players for autocomplete suggestions
