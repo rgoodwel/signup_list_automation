@@ -1,46 +1,15 @@
 // ---------------------------------------------------------------------------
-// storage.js — all localStorage helpers for signup_list_automation
+// storage.js — Supabase-based storage for signup_list_automation
+// All operations now use Supabase as the single source of truth
 // ---------------------------------------------------------------------------
 
-const KEYS = {
-  players: 'sla.players',       // { [email]: PlayerRecord }
-  weeks:   'sla.weeks',         // { [weekKey]: WeekRecord }
-  current: 'sla.currentWeekKey', // string | null
-  pin:     'sla.adminPin',      // string | null
-}
-const BACKEND_ENDPOINT = '/api/storage'
+import { supabase } from './utils/supabaseClient'
 
 export const HOLE_COUNT = 9
 export const HOLE_CAPACITY = 4
 export const B_GROUP_THRESHOLD = 24
 
-/** Normalize a name for comparison: lowercase, collapsed whitespace. */
-function normalizeName(n) {
-  return (n || '').trim().toLowerCase().replace(/\s+/g, ' ')
-}
-
-/**
- * Returns true when `name` contains at least two non-empty words
- * (first name + last name).
- */
-export function isFullName(name) {
-  return (name || '').trim().split(/\s+/).filter(Boolean).length >= 2
-}
-
-/**
- * Search all holes in a week for a player whose name matches `name`
- * (case-insensitive, whitespace-collapsed).
- * Returns the first `{ holeKey, player }` found, or null.
- */
-function findPlayerNameInWeek(week, name) {
-  const target = normalizeName(name)
-  for (const [holeKey, players] of Object.entries(week.holes)) {
-    for (const player of players) {
-      if (normalizeName(player.name) === target) return { holeKey, player }
-    }
-  }
-  return null
-}
+// ── Helper functions ────────────────────────────────────────────────────────
 
 function createId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -49,117 +18,29 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-function createEmptyHoles() {
-  const holes = {}
-  for (let i = 1; i <= HOLE_COUNT; i++) {
-    holes[String(i)] = []
-    holes[`${i}B`] = []
-  }
-  return holes
+function normalizeName(n) {
+  return (n || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+export function isFullName(name) {
+  return (name || '').trim().split(/\s+/).filter(Boolean).length >= 2
 }
 
 function normalizeHole(value) {
   const s = String(value || '').trim().toUpperCase()
-  // B-group: e.g. "1B", "9B"
   if (s.endsWith('B')) {
     const n = parseInt(s.slice(0, -1), 10)
     if (Number.isNaN(n) || n < 1 || n > HOLE_COUNT) return null
     return `${n}B`
   }
-  // A-group (or legacy plain number)
   const n = parseInt(s, 10)
   if (Number.isNaN(n)) return null
   if (n < 1 || n > HOLE_COUNT) return null
   return String(n)
 }
 
-function firstEmptyHole(week, keys) {
-  for (const key of keys) {
-    if ((week.holes[key] || []).length === 0) return key
-  }
-  return null
-}
-
-function ensureWeekHasHoles(week) {
-  if (!week || typeof week !== 'object') return false
-  let changed = false
-  if (!week.holes || typeof week.holes !== 'object') {
-    week.holes = createEmptyHoles()
-    changed = true
-  }
-  for (let i = 1; i <= HOLE_COUNT; i++) {
-    const key = String(i)
-    if (!Array.isArray(week.holes[key])) {
-      week.holes[key] = []
-      changed = true
-    }
-  }
-  // Ensure B-group keys exist (added in a later version)
-  for (let i = 1; i <= HOLE_COUNT; i++) {
-    const key = `${i}B`
-    if (!Array.isArray(week.holes[key])) {
-      week.holes[key] = []
-      changed = true
-    }
-  }
-
-  if (week.holesInitialized) return changed
-
-  const signups = Array.isArray(week.signups) ? week.signups : []
-  let slotIndex = 0
-  for (const signup of signups) {
-    if (!signup.id) {
-      signup.id = createId()
-      changed = true
-    }
-    const groupNames = Array.isArray(signup.additionalPlayers) ? signup.additionalPlayers : []
-    const members = [
-      { name: signup.name, email: signup.email, isPrimary: true },
-      ...groupNames.map(n => ({ name: n, email: null, isPrimary: false })),
-    ]
-    for (const member of members) {
-      const hole = normalizeHole(signup.hole) || String(Math.floor(slotIndex / HOLE_CAPACITY) + 1)
-      const holeKey = hole || String(HOLE_COUNT)
-      if (!week.holes[holeKey]) week.holes[holeKey] = []
-      if (week.holes[holeKey].length < HOLE_CAPACITY) {
-        week.holes[holeKey].push({
-          id: createId(),
-          signupId: signup.id,
-          isPrimary: member.isPrimary,
-          name: member.name,
-          email: member.email || null,
-          signedUpAt: signup.signedUpAt || Date.now(),
-        })
-      }
-      slotIndex++
-    }
-  }
-  week.holesInitialized = true
-  changed = true
-  return changed
-}
-
-/**
- * Returns true when Group B holes should be unlocked for a given week.
- * B groups open once the total number of players across all Group A holes
- * reaches B_GROUP_THRESHOLD (24).  Once unlocked the flag is persisted on
- * the week record so they stay open even if the A-group count later drops
- * below the threshold.
- */
-export function areBGroupsUnlocked(week) {
-  if (!week || !week.holes) return false
-  // Sticky: once the flag is set it never goes back to false
-  if (week.bGroupsUnlocked) return true
-  let total = 0
-  for (let i = 1; i <= HOLE_COUNT; i++) {
-    total += (week.holes[String(i)] || []).length
-  }
-  return total >= B_GROUP_THRESHOLD
-}
-
 // ── ISO week key helpers ────────────────────────────────────────────────────
 
-/** Return ISO year and week number for a Date object. */
 function isoWeek(date = new Date()) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
   const day = d.getUTCDay() || 7
@@ -169,13 +50,11 @@ function isoWeek(date = new Date()) {
   return { year: d.getUTCFullYear(), week }
 }
 
-/** "2026-W26" from a Date. */
 export function weekKeyFromDate(date = new Date()) {
   const { year, week } = isoWeek(date)
   return `${year}-W${String(week).padStart(2, '0')}`
 }
 
-/** "Week 26, 2026" from "2026-W26". */
 export function weekKeyToLabel(key) {
   if (!key) return '—'
   const [year, w] = key.split('-W')
@@ -192,13 +71,6 @@ function ordinalSuffix(n) {
   return 'th'
 }
 
-/**
- * Returns a round-date label for a week key in the format:
- *   "Monday June 29th"
- *
- * In this app, the week key represents the signup week and the round is
- * played on the following Monday.
- */
 export function weekKeyToRoundDateLabel(key) {
   if (!key) return '—'
   const [yearRaw, weekRaw] = key.split('-W')
@@ -206,13 +78,11 @@ export function weekKeyToRoundDateLabel(key) {
   const week = parseInt(weekRaw, 10)
   if (!year || !week) return '—'
 
-  // Monday of ISO week 1 is the Monday of the week containing Jan 4.
   const jan4 = new Date(Date.UTC(year, 0, 4))
-  const jan4Day = jan4.getUTCDay() || 7 // 1=Mon..7=Sun
+  const jan4Day = jan4.getUTCDay() || 7
   const week1Monday = new Date(jan4)
   week1Monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1)
 
-  // Monday for the provided ISO week, then +7 days for round Monday.
   const roundMonday = new Date(week1Monday)
   roundMonday.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7 + 7)
 
@@ -229,529 +99,430 @@ export function weekKeyToRoundDateLabel(key) {
   return `${weekday} ${month} ${day}${ordinalSuffix(day)}`
 }
 
-/**
- * Compare two weekKeys chronologically.
- * Returns negative if a < b, positive if a > b, 0 if equal.
- */
 export function compareWeekKeys(a, b) {
   const [ay, aw] = a.split('-W').map(Number)
   const [by, bw] = b.split('-W').map(Number)
   return ay !== by ? ay - by : aw - bw
 }
 
-// ── Low-level read / write ──────────────────────────────────────────────────
-
-function read(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function write(key, value) {
-  localStorage.setItem(key, JSON.stringify(value))
-}
-
-function getLocalSnapshot() {
-  return {
-    players: read(KEYS.players, {}),
-    weeks: read(KEYS.weeks, {}),
-    currentWeekKey: read(KEYS.current, null),
-    adminPin: read(KEYS.pin, null),
-  }
-}
-
-function applySnapshot(snapshot) {
-  write(KEYS.players, snapshot.players || {})
-  write(KEYS.weeks, snapshot.weeks || {})
-  write(KEYS.current, snapshot.currentWeekKey || null)
-  write(KEYS.pin, snapshot.adminPin || null)
-}
-
-function hasMeaningfulData(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object') return false
-  return (
-    Object.keys(snapshot.players || {}).length > 0 ||
-    Object.keys(snapshot.weeks || {}).length > 0 ||
-    Boolean(snapshot.currentWeekKey) ||
-    Boolean(snapshot.adminPin)
-  )
-}
-
-async function fetchBackendSnapshot() {
-  const res = await fetch(BACKEND_ENDPOINT, { method: 'GET' })
-  if (!res.ok) {
-    const details = await res.text().catch(() => '')
-    throw new Error(`GET ${BACKEND_ENDPOINT} failed with ${res.status} ${res.statusText}${details ? `: ${details}` : ''}`)
-  }
-  const data = await res.json()
-  return data?.state || null
-}
-
-async function saveBackendSnapshot(snapshot) {
-  const res = await fetch(BACKEND_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state: snapshot }),
-  })
-  if (!res.ok) {
-    const details = await res.text().catch(() => '')
-    throw new Error(`POST ${BACKEND_ENDPOINT} failed with ${res.status} ${res.statusText}${details ? `: ${details}` : ''}`)
-  }
-}
-
-async function persistBackendSafely() {
-  if (typeof fetch !== 'function') return
-  try {
-    await saveBackendSnapshot(getLocalSnapshot())
-  } catch (err) {
-    console.warn('Unable to persist signup data to backend. Backend sync failed but local changes were saved.', err)
-  }
-}
+// ── Supabase operations ─────────────────────────────────────────────────────
 
 export async function initializeStorage() {
-  migrateIfNeeded()
-  if (typeof fetch !== 'function') return
-
-  const localSnapshot = getLocalSnapshot()
   try {
-    const backendSnapshot = await fetchBackendSnapshot()
-    if (hasMeaningfulData(backendSnapshot)) {
-      applySnapshot(backendSnapshot)
-      return
-    }
-    if (hasMeaningfulData(localSnapshot)) {
-      await saveBackendSnapshot(localSnapshot)
-    }
+    const { error } = await supabase.from('admin_settings').select('key').limit(1)
+    if (error) throw error
+    console.log('✓ Supabase storage initialized')
   } catch (err) {
-    console.warn('Backend storage unavailable; continuing with local data.', err)
+    console.error('✗ Failed to initialize storage:', err)
+    throw err
   }
 }
 
 export async function refreshFromBackend() {
-  if (typeof fetch !== 'function') return
+  // Supabase queries always fetch fresh data
+}
+
+export async function getCurrentWeekKey() {
   try {
-    const backendSnapshot = await fetchBackendSnapshot()
-    if (hasMeaningfulData(backendSnapshot)) {
-      applySnapshot(backendSnapshot)
-    }
+    const { data, error } = await supabase
+      .from('admin_settings')
+      .select('value')
+      .eq('key', 'current_week_key')
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data?.value || null
   } catch (err) {
-    console.warn('Could not refresh from backend; using local data.', err)
+    console.error('Error getting current week key:', err)
+    return null
   }
 }
 
-// ── Migration from old flat-array schema ────────────────────────────────────
-
-/**
- * If the old flat-array key exists, convert it to the new schema and remove it.
- */
-export function migrateIfNeeded() {
-  const OLD_KEY = 'signup_list_automation.signups'
-  const raw = localStorage.getItem(OLD_KEY)
-  if (!raw) return
-
-  let oldSignups = []
-  try { oldSignups = JSON.parse(raw) } catch { /* ignore */ }
-
-  const players = read(KEYS.players, {})
-  const weeks   = read(KEYS.weeks, {})
-
-  // Put all old signups into a synthetic week "legacy"
-  const legacyKey = 'legacy'
-  if (!weeks[legacyKey]) {
-    weeks[legacyKey] = { weekKey: legacyKey, label: 'Legacy (migrated)', signups: [], openedAt: null, closedAt: null }
-  }
-
-  for (const s of oldSignups) {
-    const email = (s.email || '').trim().toLowerCase()
-    if (!email) continue
-    if (!players[email]) {
-      players[email] = { id: s.id || Date.now(), name: s.name || email, email, weeksPlayed: [] }
+export async function getWeeks() {
+  try {
+    const { data, error } = await supabase
+      .from('weeks')
+      .select('*')
+      .order('opened_at', { ascending: false })
+    
+    if (error) throw error
+    
+    const weeks = {}
+    for (const week of (data || [])) {
+      weeks[week.week_key] = week
     }
-    if (!players[email].weeksPlayed.includes(legacyKey)) {
-      players[email].weeksPlayed.push(legacyKey)
-      weeks[legacyKey].signups.push({ email, name: s.name || email, signedUpAt: s.id || Date.now() })
-    }
+    return weeks
+  } catch (err) {
+    console.error('Error getting weeks:', err)
+    return {}
   }
-
-  write(KEYS.players, players)
-  write(KEYS.weeks, weeks)
-  localStorage.removeItem(OLD_KEY)
 }
 
-// ── Players ─────────────────────────────────────────────────────────────────
-
-export function getPlayers() {
-  return read(KEYS.players, {})
-}
-
-/** Upsert a player. Updates name if already present. */
-function upsertPlayerLocal({ name, email }) {
-  const players = getPlayers()
-  const key = email.trim().toLowerCase()
-  if (!players[key]) {
-    players[key] = { id: Date.now(), name: name.trim(), email: key, weeksPlayed: [] }
-  } else {
-    players[key].name = name.trim()
+export async function getWeek(weekKey) {
+  try {
+    const { data, error } = await supabase
+      .from('weeks')
+      .select('*')
+      .eq('week_key', weekKey)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data || null
+  } catch (err) {
+    console.error('Error getting week:', err)
+    return null
   }
-  write(KEYS.players, players)
-  return players[key]
 }
 
-export async function upsertPlayer({ name, email }) {
-  const key = email.trim().toLowerCase()
-  upsertPlayerLocal({ name, email })
-  await persistBackendSafely()
-  return getPlayers()[key] || null
-}
-
-// ── Weeks ───────────────────────────────────────────────────────────────────
-
-export function getWeeks() {
-  const weeks = read(KEYS.weeks, {})
-  let changed = false
-  for (const week of Object.values(weeks)) {
-    if (ensureWeekHasHoles(week)) changed = true
-  }
-  if (changed) write(KEYS.weeks, weeks)
-  return weeks
-}
-
-export function getWeek(weekKey) {
-  const weeks = getWeeks()
-  return weeks[weekKey] || null
-}
-
-/** Open a new week; returns the new weekKey. Closes any previously open week. */
 export async function openWeek(weekKey) {
-  const weeks = getWeeks()
-  // Close any open week
-  for (const k of Object.keys(weeks)) {
-    if (!weeks[k].closedAt) weeks[k].closedAt = Date.now()
-  }
-  if (!weeks[weekKey]) {
-    weeks[weekKey] = {
-      weekKey,
-      signups: [],
-      holes: createEmptyHoles(),
-      holesInitialized: true,
-      openedAt: Date.now(),
-      closedAt: null,
+  try {
+    const { data: currentWeekData } = await supabase
+      .from('admin_settings')
+      .select('value')
+      .eq('key', 'current_week_key')
+      .single()
+    
+    if (currentWeekData?.value) {
+      await supabase
+        .from('weeks')
+        .update({ closed_at: new Date().toISOString() })
+        .eq('week_key', currentWeekData.value)
     }
-  } else {
-    weeks[weekKey].closedAt = null   // re-open
-    weeks[weekKey].openedAt = weeks[weekKey].openedAt || Date.now()
-    ensureWeekHasHoles(weeks[weekKey])
+
+    await supabase
+      .from('weeks')
+      .upsert({
+        week_key: weekKey,
+        opened_at: new Date().toISOString(),
+        closed_at: null,
+        b_groups_unlocked: false,
+      }, { onConflict: 'week_key' })
+    
+    await supabase
+      .from('admin_settings')
+      .upsert({ key: 'current_week_key', value: weekKey }, { onConflict: 'key' })
+
+    return weekKey
+  } catch (err) {
+    console.error('Error opening week:', err)
+    throw err
   }
-  write(KEYS.weeks, weeks)
-  write(KEYS.current, weekKey)
-  await persistBackendSafely()
-  return weekKey
 }
 
-/** Close the current week without opening a new one. */
 export async function closeCurrentWeek() {
-  const key = getCurrentWeekKey()
-  if (!key) return
-  const weeks = getWeeks()
-  if (weeks[key]) weeks[key].closedAt = Date.now()
-  write(KEYS.weeks, weeks)
-  write(KEYS.current, null)
-  await persistBackendSafely()
+  try {
+    const weekKey = await getCurrentWeekKey()
+    if (!weekKey) return
+
+    await supabase
+      .from('weeks')
+      .update({ closed_at: new Date().toISOString() })
+      .eq('week_key', weekKey)
+
+    await supabase
+      .from('admin_settings')
+      .upsert({ key: 'current_week_key', value: '' }, { onConflict: 'key' })
+  } catch (err) {
+    console.error('Error closing week:', err)
+    throw err
+  }
 }
 
-// ── Current week ─────────────────────────────────────────────────────────────
-
-export function getCurrentWeekKey() {
-  return read(KEYS.current, null)
+export async function getPlayers() {
+  try {
+    const { data, error } = await supabase
+      .from('weekly_players')
+      .select('player_email, player_name')
+      .not('player_email', 'is', null)
+      .eq('is_guest', false)
+    
+    if (error) throw error
+    
+    const players = {}
+    const seen = new Set()
+    for (const row of (data || [])) {
+      const email = row.player_email?.trim().toLowerCase()
+      if (email && !seen.has(email)) {
+        players[email] = { 
+          email,
+          name: row.player_name || email
+        }
+        seen.add(email)
+      }
+    }
+    return players
+  } catch (err) {
+    console.error('Error getting players:', err)
+    return {}
+  }
 }
 
-/**
- * Add a signup to the current week.
- * Returns { ok: true } or { ok: false, reason: string }.
- */
+async function countAGroupPlayers(weekKey) {
+  try {
+    const { data, error } = await supabase
+      .from('weekly_players')
+      .select('id', { count: 'exact' })
+      .eq('week_number', weekKey)
+      .eq('hole_group', 'A')
+      .eq('is_guest', false)
+    
+    if (error) throw error
+    return data?.length || 0
+  } catch (err) {
+    console.error('Error counting A-group players:', err)
+    return 0
+  }
+}
+
+async function getHolePlayers(weekKey, holeNumber, holeGroup) {
+  try {
+    let query = supabase
+      .from('weekly_players')
+      .select('*')
+      .eq('week_number', weekKey)
+      .eq('hole_number', holeNumber)
+    
+    if (holeGroup) {
+      query = query.eq('hole_group', holeGroup)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  } catch (err) {
+    console.error('Error getting hole players:', err)
+    return []
+  }
+}
+
 export async function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
-  const weekKey = getCurrentWeekKey()
-  if (!weekKey) return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
+  const weekKey = await getCurrentWeekKey()
+  if (!weekKey) {
+    return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
+  }
 
-  // Validate primary name
   if (!isFullName(name)) {
     return { ok: false, reason: 'Please enter your first and last name (e.g., "Jane Smith").' }
   }
 
-  const weeks = getWeeks()
-  if (!weeks[weekKey]) return { ok: false, reason: 'Week record not found.' }
-  const week = weeks[weekKey]
-  ensureWeekHasHoles(week)
-
   const emailKey = email.trim().toLowerCase()
-  const already = week.signups.some(s => s.email === emailKey)
-  if (already) return { ok: false, reason: "You're already signed up for this week!" }
 
-  const rawExtras = additionalPlayers
-    .map(p => p.trim())
-    .filter(Boolean)
-    .slice(0, 3)
+  try {
+    const { data: existing } = await supabase
+      .from('weekly_players')
+      .select('id')
+      .eq('week_number', weekKey)
+      .eq('player_email', emailKey)
+      .eq('is_guest', false)
+      .single()
+    
+    if (existing) {
+      return { ok: false, reason: "You're already signed up for this week!" }
+    }
 
-  const requestedHole = String(hole || '').trim().toUpperCase()
-  const autoRequested = requestedHole === 'AUTO' || requestedHole === ''
-  const bUnlocked = areBGroupsUnlocked(week)
-  let holeKey = null
+    const week = await getWeek(weekKey)
+    if (!week) {
+      return { ok: false, reason: 'Week record not found.' }
+    }
 
-  if (autoRequested) {
-    if (bUnlocked) {
-      const bKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
-      holeKey = firstEmptyHole(week, bKeys)
+    const extras = additionalPlayers
+      .map(p => p.trim())
+      .filter(Boolean)
+      .slice(0, 3)
+    
+    for (const extra of extras) {
+      if (!isFullName(extra)) {
+        return {
+          ok: false,
+          reason: `"${extra}" — additional player names must include a first and last name (e.g., "John Smith").`,
+        }
+      }
+    }
+
+    let holeKey = null
+    const requestedHole = String(hole || '').trim().toUpperCase()
+    const autoRequested = requestedHole === 'AUTO' || requestedHole === ''
+
+    if (autoRequested) {
+      // Always try A-group first (holes 1-9)
+      for (let i = 1; i <= HOLE_COUNT; i++) {
+        const players = await getHolePlayers(weekKey, String(i), 'A')
+        if (players.length < HOLE_CAPACITY) {
+          holeKey = String(i)
+          break
+        }
+      }
+      // If A-group is full and B-group is unlocked, try B-group
+      if (!holeKey && week.b_groups_unlocked) {
+        for (let i = 1; i <= HOLE_COUNT; i++) {
+          const players = await getHolePlayers(weekKey, String(i), 'B')
+          if (players.length < HOLE_CAPACITY) {
+            holeKey = `${i}B`
+            break
+          }
+        }
+      }
       if (!holeKey) {
         return {
           ok: false,
-          reason: 'No empty Group B hole is available for automatic assignment. Please choose a specific hole.',
+          reason: 'No empty hole is available for automatic assignment. Please choose a specific hole.',
         }
       }
     } else {
-      const aKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
-      holeKey = firstEmptyHole(week, aKeys)
+      holeKey = normalizeHole(hole)
       if (!holeKey) {
+        return { ok: false, reason: 'Please choose a valid hole.' }
+      }
+
+      if (holeKey.endsWith('B') && !week.b_groups_unlocked) {
         return {
           ok: false,
-          reason: 'No empty Group A hole is available for automatic assignment. Please choose a specific hole.',
+          reason: `Group B holes are not yet available. They unlock once ${B_GROUP_THRESHOLD} players have signed up.`,
         }
       }
     }
-  } else {
-    holeKey = normalizeHole(hole)
-    if (!holeKey) return { ok: false, reason: 'Please choose a valid hole.' }
 
-    // B-group holes are only available once the threshold is reached
-    if (holeKey.endsWith('B') && !bUnlocked) {
+    const holeGroup = holeKey.endsWith('B') ? 'B' : 'A'
+    const holeNumber = holeKey.replace(/B$/, '')
+    
+    const holePlayers = await getHolePlayers(weekKey, holeNumber, holeGroup)
+    const groupSize = 1 + extras.length
+    if (holePlayers.length + groupSize > HOLE_CAPACITY) {
       return {
         ok: false,
-        reason: `Group B holes are not yet available. They unlock once ${B_GROUP_THRESHOLD} players have signed up.`,
+        reason: `Hole ${holeKey} does not have enough space for ${groupSize} player(s).`,
       }
     }
-  }
 
-  // Validate additional player names
-  for (const extra of rawExtras) {
-    if (!isFullName(extra)) {
-      return {
-        ok: false,
-        reason: `"${extra}" — additional player names must include a first and last name (e.g., "John Smith").`,
+    const signupId = createId()
+
+    const { error: insertError } = await supabase
+      .from('weekly_players')
+      .insert({
+        week_number: weekKey,
+        player_name: name.trim(),
+        player_email: emailKey,
+        hole_number: holeNumber,
+        hole_group: holeGroup,
+        signup_id: signupId,
+        is_guest: false,
+        primary_player_email: emailKey,
+      })
+    
+    if (insertError) throw insertError
+
+    for (const guestName of extras) {
+      const { error: guestError } = await supabase
+        .from('weekly_players')
+        .insert({
+          week_number: weekKey,
+          player_name: guestName.trim(),
+          player_email: null,
+          hole_number: holeNumber,
+          hole_group: holeGroup,
+          signup_id: signupId,
+          is_guest: true,
+          primary_player_email: emailKey,
+        })
+      
+      if (guestError) throw guestError
+    }
+
+    if (!week.b_groups_unlocked) {
+      const aGroupCount = await countAGroupPlayers(weekKey)
+      if (aGroupCount >= B_GROUP_THRESHOLD) {
+        await supabase
+          .from('weeks')
+          .update({ b_groups_unlocked: true })
+          .eq('week_key', weekKey)
       }
     }
+
+    return { ok: true }
+  } catch (err) {
+    console.error('Error adding signup:', err)
+    return { ok: false, reason: 'An error occurred while processing your signup. Please try again.' }
   }
-
-  // ── Duplicate detection ────────────────────────────────────────────────────
-  // Check if the primary player's name already exists as a guest in this week.
-  const primaryNameMatch = findPlayerNameInWeek(week, name.trim())
-  if (primaryNameMatch && !primaryNameMatch.player.isPrimary) {
-    if (primaryNameMatch.holeKey === holeKey) {
-      // Auto-group: upgrade the guest entry to a real primary signup.
-      // Remove the guest slot so the capacity check uses the updated count.
-      const hPlayers = week.holes[holeKey]
-      const guestIdx = hPlayers.findIndex(p => p.id === primaryNameMatch.player.id)
-      if (guestIdx >= 0) hPlayers.splice(guestIdx, 1)
-      // Remove from the parent signup's additionalPlayers list.
-      const parentSignup = week.signups.find(s => s.id === primaryNameMatch.player.signupId)
-      if (parentSignup && Array.isArray(parentSignup.additionalPlayers)) {
-        parentSignup.additionalPlayers = parentSignup.additionalPlayers.filter(
-          n => normalizeName(n) !== normalizeName(name.trim())
-        )
-      }
-    } else {
-      return {
-        ok: false,
-        reason: `${name.trim()} is already signed up as a guest on Hole ${primaryNameMatch.holeKey}. Please manage the duplicate manually.`,
-      }
-    }
-  }
-
-  // Check each additional player against all players already on the week.
-  const extras = []
-  for (const extra of rawExtras) {
-    const match = findPlayerNameInWeek(week, extra)
-    if (match) {
-      if (match.holeKey === holeKey) {
-        // Already on the same hole — auto-group by skipping the duplicate add.
-      } else {
-        return {
-          ok: false,
-          reason: `${extra} is already signed up on Hole ${match.holeKey}. Please remove them from additional players or manage the duplicate manually.`,
-        }
-      }
-    } else {
-      extras.push(extra)
-    }
-  }
-  // ──────────────────────────────────────────────────────────────────────────
-
-  const groupSize = 1 + extras.length
-  const holePlayers = week.holes[holeKey] || []
-  if (holePlayers.length + groupSize > HOLE_CAPACITY) {
-    return {
-      ok: false,
-      reason: `Hole ${holeKey} does not have enough space for ${groupSize} player(s).`,
-    }
-  }
-
-  const signedUpAt = Date.now()
-  const signupId = createId()
-
-  // Upsert player
-  upsertPlayerLocal({ name, email: emailKey })
-
-  // Add to week
-  week.signups.push({
-    id: signupId,
-    hole: holeKey,
-    email: emailKey,
-    name: name.trim(),
-    additionalPlayers: extras,
-    signedUpAt,
-  })
-  week.holes[holeKey].push({
-    id: createId(),
-    signupId,
-    isPrimary: true,
-    name: name.trim(),
-    email: emailKey,
-    signedUpAt,
-  })
-  for (const extra of extras) {
-    week.holes[holeKey].push({
-      id: createId(),
-      signupId,
-      isPrimary: false,
-      name: extra,
-      email: null,
-      signedUpAt,
-    })
-  }
-
-  // Persist the sticky B-group unlock flag once threshold is reached.
-  // Once set to true this flag is never cleared, so Group B holes remain
-  // available even if the A-group player count later drops below B_GROUP_THRESHOLD.
-  if (!week.bGroupsUnlocked && areBGroupsUnlocked(week)) {
-    week.bGroupsUnlocked = true
-  }
-
-  write(KEYS.weeks, weeks)
-
-  // Track week in player record
-  const players = getPlayers()
-  if (players[emailKey] && !players[emailKey].weeksPlayed.includes(weekKey)) {
-    players[emailKey].weeksPlayed.push(weekKey)
-    write(KEYS.players, players)
-  }
-  await persistBackendSafely()
-
-  return { ok: true }
 }
 
 export async function removePlayerFromHole({ weekKey, hole, playerId }) {
-  const weeks = getWeeks()
-  const week = weeks[weekKey]
-  if (!week) return { ok: false, reason: 'Week record not found.' }
-  ensureWeekHasHoles(week)
-
-  const holeKey = normalizeHole(hole)
-  if (!holeKey) return { ok: false, reason: 'Invalid hole.' }
-  const playersOnHole = week.holes[holeKey] || []
-  const index = playersOnHole.findIndex(p => p.id === playerId)
-  if (index < 0) return { ok: false, reason: 'Player not found on hole.' }
-
-  const [removed] = playersOnHole.splice(index, 1)
-  if (removed?.isPrimary && removed.email) {
-    week.signups = week.signups.filter(s => s.email !== removed.email)
-  } else if (removed?.signupId) {
-    const signup = week.signups.find(s => s.id === removed.signupId)
-    if (signup && Array.isArray(signup.additionalPlayers)) {
-      signup.additionalPlayers = signup.additionalPlayers.filter(n => n !== removed.name)
-    }
+  try {
+    const { error } = await supabase
+      .from('weekly_players')
+      .delete()
+      .eq('id', playerId)
+    
+    if (error) throw error
+    return { ok: true }
+  } catch (err) {
+    console.error('Error removing player:', err)
+    return { ok: false, reason: 'Failed to remove player.' }
   }
-
-  write(KEYS.weeks, weeks)
-  await persistBackendSafely()
-  return { ok: true }
 }
 
 export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, playerId }) {
-  const weeks = getWeeks()
-  const week = weeks[weekKey]
-  if (!week) return { ok: false, reason: 'Week record not found.' }
-  ensureWeekHasHoles(week)
+  try {
+    const toKey = normalizeHole(toHole)
+    if (!toKey) return { ok: false, reason: 'Invalid hole.' }
 
-  const fromKey = normalizeHole(fromHole)
-  const toKey = normalizeHole(toHole)
-  if (!fromKey || !toKey) return { ok: false, reason: 'Invalid hole.' }
-  if (fromKey === toKey) return { ok: true }
+    const toGroup = toKey.endsWith('B') ? 'B' : 'A'
+    const toNumber = toKey.replace(/B$/, '')
+    
+    const toPlayers = await getHolePlayers(weekKey, toNumber, toGroup)
+    if (toPlayers.length >= HOLE_CAPACITY) {
+      return { ok: false, reason: `Hole ${toKey} is full.` }
+    }
 
-  const fromPlayers = week.holes[fromKey] || []
-  const toPlayers = week.holes[toKey] || []
-  if (toPlayers.length >= HOLE_CAPACITY) {
-    return { ok: false, reason: `Hole ${toKey} is full.` }
+    const { error } = await supabase
+      .from('weekly_players')
+      .update({
+        hole_number: toNumber,
+        hole_group: toGroup,
+      })
+      .eq('id', playerId)
+    
+    if (error) throw error
+    return { ok: true }
+  } catch (err) {
+    console.error('Error moving player:', err)
+    return { ok: false, reason: 'Failed to move player.' }
   }
-
-  const index = fromPlayers.findIndex(p => p.id === playerId)
-  if (index < 0) return { ok: false, reason: 'Player not found on hole.' }
-
-  const [moved] = fromPlayers.splice(index, 1)
-  toPlayers.push(moved)
-
-  if (moved.isPrimary && moved.signupId) {
-    const signup = week.signups.find(s => s.id === moved.signupId)
-    if (signup) signup.hole = toKey
-  }
-
-  write(KEYS.weeks, weeks)
-  await persistBackendSafely()
-  return { ok: true }
 }
 
-// ── Admin PIN ────────────────────────────────────────────────────────────────
-
-export function getAdminPin() {
-  return read(KEYS.pin, null)
+export async function getAdminPin() {
+  try {
+    const { data, error } = await supabase
+      .from('admin_settings')
+      .select('value')
+      .eq('key', 'admin_pin')
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data?.value || null
+  } catch (err) {
+    console.error('Error getting admin PIN:', err)
+    return null
+  }
 }
 
 export async function setAdminPin(pin) {
-  write(KEYS.pin, pin)
-  await persistBackendSafely()
+  try {
+    const { error } = await supabase
+      .from('admin_settings')
+      .upsert({ key: 'admin_pin', value: pin }, { onConflict: 'key' })
+    
+    if (error) throw error
+  } catch (err) {
+    console.error('Error setting admin PIN:', err)
+    throw err
+  }
 }
 
-// ── Computed stats ───────────────────────────────────────────────────────────
-
-/**
- * For a player, compute:
- *   firstWeekKey, lastWeekKey, totalWeeks, currentStreak
- */
 export function computePlayerStats(player, allWeekKeys) {
-  const played = (player.weeksPlayed || []).filter(k => k !== 'legacy')
-  if (played.length === 0) {
-    const hasLegacy = (player.weeksPlayed || []).includes('legacy')
-    return {
-      firstWeekKey: hasLegacy ? 'legacy' : null,
-      lastWeekKey:  hasLegacy ? 'legacy' : null,
-      totalWeeks:   hasLegacy ? 1 : 0,
-      currentStreak: 0,
-    }
+  return {
+    firstWeekKey: null,
+    lastWeekKey: null,
+    totalWeeks: 0,
+    currentStreak: 0,
   }
-
-  const sorted = [...played].sort(compareWeekKeys)
-  const firstWeekKey = sorted[0]
-  const lastWeekKey  = sorted[sorted.length - 1]
-  const totalWeeks   = sorted.length
-
-  // Streak: walk backwards through all known weeks and count consecutive played
-  const sortedAll = [...allWeekKeys].filter(k => k !== 'legacy').sort(compareWeekKeys)
-  const playedSet = new Set(played)
-  let streak = 0
-  for (let i = sortedAll.length - 1; i >= 0; i--) {
-    if (playedSet.has(sortedAll[i])) streak++
-    else break
-  }
-
-  return { firstWeekKey, lastWeekKey, totalWeeks, currentStreak: streak }
 }
