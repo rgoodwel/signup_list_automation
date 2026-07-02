@@ -61,7 +61,7 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
 
   const filtered = value.trim().length > 0
     ? suggestions.filter(s =>
-        s.name.toLowerCase().includes(value.trim().toLowerCase())
+        (s?.name || '').toLowerCase().includes(value.trim().toLowerCase())
       )
     : []
 
@@ -181,8 +181,8 @@ export default function SignupForm({ players, onSignedUp }) {
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
-    .map(p => ({ name: p.name, email: p.email }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '' }))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   // Derived state from week data
   const isClosed   = !weekKey || (week && week.closedAt)

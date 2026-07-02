@@ -232,7 +232,7 @@ export async function getPlayers() {
   try {
     const { data, error } = await supabase
       .from('weekly_players')
-      .select('player_email')
+      .select('player_email, player_name')
       .not('player_email', 'is', null)
       .eq('is_guest', false)
     
@@ -243,7 +243,10 @@ export async function getPlayers() {
     for (const row of (data || [])) {
       const email = row.player_email?.trim().toLowerCase()
       if (email && !seen.has(email)) {
-        players[email] = { email }
+        players[email] = { 
+          email,
+          name: row.player_name || email
+        }
         seen.add(email)
       }
     }
