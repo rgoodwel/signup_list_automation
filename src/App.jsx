@@ -12,8 +12,10 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     await refreshFromBackend()
-    setPlayers(getPlayers())
-    setWeeks(getWeeks())
+    const p = await getPlayers()
+    const w = await getWeeks()
+    setPlayers(p)
+    setWeeks(w)
   }, [])
 
   useEffect(() => {
@@ -74,7 +76,7 @@ export default function App() {
       </main>
 
       <footer>
-        <small>Stored in backend storage (with local fallback).</small>
+        <small>Stored in Supabase PostgreSQL database.</small>
       </footer>
     </div>
   )

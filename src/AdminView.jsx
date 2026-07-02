@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getAdminPin, setAdminPin } from './storage'
 import CurrentWeekPanel from './CurrentWeekPanel'
 import PlayerHistoryTable from './PlayerHistoryTable'
@@ -53,9 +53,10 @@ function PinLogin({ onSuccess }) {
   const [pin, setPin] = useState('')
   const [err, setErr] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (pin === getAdminPin()) {
+    const storedPin = await getAdminPin()
+    if (pin === storedPin) {
       onSuccess()
     } else {
       setErr('Incorrect PIN.')
@@ -91,9 +92,29 @@ const TABS = [
 ]
 
 export default function AdminView({ players, weeks, onRefresh }) {
-  const savedPin = getAdminPin()
+  const [savedPin, setSavedPin] = useState(null)
   const [authed, setAuthed]   = useState(false)
   const [tab, setTab]         = useState('week')
+  const [loading, setLoading] = useState(true)
+
+  // Load admin PIN on mount
+  useEffect(() => {
+    async function loadPin() {
+      try {
+        const pin = await getAdminPin()
+        setSavedPin(pin)
+      } catch (err) {
+        console.error('Error loading admin PIN:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadPin()
+  }, [])
+
+  if (loading) {
+    return <div className="pin-gate"><p className="muted">Loading...</p></div>
+  }
 
   if (!savedPin) {
     return <PinSetup onSet={() => setAuthed(true)} />

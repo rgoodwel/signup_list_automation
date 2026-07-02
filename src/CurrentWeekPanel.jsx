@@ -12,31 +12,49 @@ import { supabase } from './utils/supabaseClient'
 export default function CurrentWeekPanel({ onRefresh }) {
   const [weeklyPlayers, setWeeklyPlayers] = useState([])
   const [loadingSupabase, setLoadingSupabase] = useState(false)
-  const weekKey = getCurrentWeekKey()
-  const week    = weekKey ? getWeek(weekKey) : null
-  const isOpen  = weekKey && week && !week.closedAt
+  const [weekKey, setWeekKey] = useState(null)
+  const [week, setWeek] = useState(null)
 
-  // Fetch weekly players from Supabase
+  // Fetch current week and players from Supabase
   useEffect(() => {
-    async function fetchWeeklyPlayers() {
-      setLoadingSupabase(true)
+    async function loadWeekData() {
       try {
-        const { data, error } = await supabase
-          .from('weekly_players')
-          .select('id, player_name, player_email, hole_number, hole_group, week_number')
-        if (error) {
-          console.error('Error fetching weekly players:', error)
+        setLoadingSupabase(true)
+        const key = await getCurrentWeekKey()
+        setWeekKey(key)
+        
+        if (key) {
+          const w = await getWeek(key)
+          setWeek(w)
+          
+          // Fetch players for this week
+          const { data, error } = await supabase
+            .from('weekly_players')
+            .select('id, player_name, player_email, hole_number, hole_group, week_number')
+            .eq('week_number', key)
+          
+          if (error) {
+            console.error('Error fetching weekly players:', error)
+          } else {
+            setWeeklyPlayers(data || [])
+          }
         } else {
-          setWeeklyPlayers(data || [])
+          setWeek(null)
+          setWeeklyPlayers([])
         }
       } catch (err) {
-        console.error('Supabase fetch error:', err)
+        console.error('Error loading week data:', err)
       } finally {
         setLoadingSupabase(false)
       }
     }
-    fetchWeeklyPlayers()
+    
+    loadWeekData()
+    const timer = setInterval(loadWeekData, 5000) // Refresh every 5 seconds
+    return () => clearInterval(timer)
   }, [])
+
+  const isOpen  = weekKey && week && !week.closedAt
 
   async function handleOpen() {
     const key = weekKeyFromDate()
