@@ -527,6 +527,7 @@ export default function SignupForm({ players, onSignedUp }) {
               <span className="signup-player-count">{totalAllPlayers} player{totalAllPlayers !== 1 ? 's' : ''} signed up</span>
             </div>
           </form>
+          {msg && <p className={`form-msg form-msg--${msg.type}`}>{msg.text}</p>}
           <div className="holes-grid">
             {holeKeys.map(holeKey => (
               <div
@@ -611,7 +612,6 @@ export default function SignupForm({ players, onSignedUp }) {
           )}
         </>
       )}
-      {msg && <p className={`form-msg form-msg--${msg.type}`}>{msg.text}</p>}
     </section>
   )
 }
