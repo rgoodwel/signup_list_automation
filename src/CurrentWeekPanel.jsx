@@ -121,39 +121,6 @@ export default function CurrentWeekPanel({ onRefresh }) {
             : 'Signups are locked. Use "Unlock Signups" to open the current week.'}
         </p>
       )}
-
-      {/* Supabase Weekly Players Section */}
-      <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-        <h3 style={{ marginTop: 0 }}>Weekly Players (from Supabase)</h3>
-        {loadingSupabase ? (
-          <p className="muted">Loading players from Supabase...</p>
-        ) : weeklyPlayers.length === 0 ? (
-          <p className="muted">No players found in Supabase.</p>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Group</th>
-                <th>Hole</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weeklyPlayers.map((player, i) => (
-                <tr key={player.id || i}>
-                  <td>{i + 1}</td>
-                  <td>{player.player_name}</td>
-                  <td>{player.player_email}</td>
-                  <td>{player.hole_group}</td>
-                  <td>{player.hole_number}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </div>
   )
 }
