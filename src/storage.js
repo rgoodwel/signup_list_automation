@@ -259,12 +259,12 @@ export async function getPlayers() {
 
 async function countAGroupPlayers(weekKey) {
   try {
+    // Count ALL players (primary + guests) in A-group, not just primaries
     const { data, error } = await supabase
       .from('weekly_players')
       .select('id', { count: 'exact' })
       .eq('week_number', weekKey)
       .eq('hole_group', 'A')
-      .eq('is_guest', false)
     
     if (error) throw error
     return data?.length || 0
@@ -348,11 +348,29 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       .filter(Boolean)
       .slice(0, 3)
     
+    // Validate all additional players
     for (const extra of extras) {
       if (!isFullName(extra)) {
         return {
           ok: false,
           reason: `"${extra}" — additional player names must include a first and last name (e.g., "John Smith").`,
+        }
+      }
+    }
+    
+    // Check for duplicate guest names in the same week
+    for (const guestName of extras) {
+      const { data: existing } = await supabase
+        .from('weekly_players')
+        .select('id')
+        .eq('week_number', weekKey)
+        .ilike('player_name', guestName.trim())
+        .single()
+      
+      if (existing) {
+        return {
+          ok: false,
+          reason: `"${guestName}" is already signed up for this week. Each player can only appear once.`,
         }
       }
     }
@@ -362,30 +380,43 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     const autoRequested = requestedHole === 'AUTO' || requestedHole === ''
 
     if (autoRequested) {
-      // Always try A-group first (holes 1-9)
+      const groupSize = 1 + extras.length
+      let bestHole = null
+      let bestCapacity = -1
+      
+      // Always try A-group first (holes 1-9) - pick the hole with BEST FIT
       for (let i = 1; i <= HOLE_COUNT; i++) {
         const players = await getHolePlayers(weekKey, String(i), 'A')
-        if (players.length < HOLE_CAPACITY) {
-          holeKey = String(i)
-          break
+        const available = HOLE_CAPACITY - players.length
+        
+        // If this hole fits the group and has less wasted space, it's better
+        if (available >= groupSize && (bestCapacity === -1 || available < bestCapacity)) {
+          bestHole = String(i)
+          bestCapacity = available
         }
       }
-      // If A-group is full and B-group is unlocked, try B-group
-      if (!holeKey && week.b_groups_unlocked) {
+      
+      // If A-group has no good fit and B-group is unlocked, try B-group
+      if (!bestHole && week.b_groups_unlocked) {
         for (let i = 1; i <= HOLE_COUNT; i++) {
           const players = await getHolePlayers(weekKey, String(i), 'B')
-          if (players.length < HOLE_CAPACITY) {
-            holeKey = `${i}B`
-            break
+          const available = HOLE_CAPACITY - players.length
+          
+          if (available >= groupSize && (bestCapacity === -1 || available < bestCapacity)) {
+            bestHole = `${i}B`
+            bestCapacity = available
           }
         }
       }
-      if (!holeKey) {
+      
+      if (!bestHole) {
         return {
           ok: false,
-          reason: 'No empty hole is available for automatic assignment. Please choose a specific hole.',
+          reason: `No hole has enough space for ${groupSize} player(s). Please choose a specific hole or reduce additional players.`,
         }
       }
+      
+      holeKey = bestHole
     } else {
       holeKey = normalizeHole(hole)
       if (!holeKey) {
