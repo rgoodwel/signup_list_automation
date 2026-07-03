@@ -320,9 +320,27 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       return { ok: false, reason: "You're already signed up for this week!" }
     }
 
-    const week = await getWeek(weekKey)
+    let week = await getWeek(weekKey)
     if (!week) {
-      return { ok: false, reason: 'Week record not found.' }
+      // Auto-create the week if it doesn't exist (in case admin_settings has been set but week not created yet)
+      try {
+        const { error: createError } = await supabase
+          .from('weeks')
+          .insert({
+            week_key: weekKey,
+            opened_at: new Date().toISOString(),
+            closed_at: null,
+            b_groups_unlocked: false,
+          })
+        if (createError) throw createError
+        week = await getWeek(weekKey)
+      } catch (err) {
+        console.error('Error creating week:', err)
+        return { ok: false, reason: 'Could not create week record. Please contact an administrator.' }
+      }
+      if (!week) {
+        return { ok: false, reason: 'Week record could not be created. Please contact an administrator.' }
+      }
     }
 
     const extras = additionalPlayers
