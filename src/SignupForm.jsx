@@ -281,6 +281,25 @@ export default function SignupForm({ players, onSignedUp }) {
     setPopup({ title, message, hint: hint || null })
   }
 
+  /**
+   * Get available spots in a hole, accounting for the user's full group
+   * (primary + active additional players)
+   */
+  function getAvailableSpots(holeKey) {
+    const currentPlayers = holes[holeKey]?.length ?? 0
+    const groupSize = 1 + additionalCount // primary + additional players
+    const capacity = HOLE_CAPACITY
+    return Math.max(0, capacity - currentPlayers - groupSize)
+  }
+
+  /** Check if a hole has at least one available spot for the full group */
+  function canFitGroup(holeKey) {
+    const currentPlayers = holes[holeKey]?.length ?? 0
+    const groupSize = 1 + additionalCount
+    const capacity = HOLE_CAPACITY
+    return currentPlayers + groupSize <= capacity
+  }
+
   async function reloadHoles() {
     try {
       if (!weekKey) return
@@ -537,20 +556,28 @@ export default function SignupForm({ players, onSignedUp }) {
                 <option value="AUTO">
                   Automatic Assignment
                 </option>
-                <optgroup label="Group A">
-                  {holeKeys.map(holeKey => (
-                    <option key={holeKey} value={holeKey}>
-                      {holeLabel(holeKey, bUnlocked)}
-                    </option>
-                  ))}
-                </optgroup>
-                {bUnlocked && (
+                {/* Group A holes with available spots */}
+                {holeKeys.some(k => canFitGroup(k)) && (
+                  <optgroup label="Group A">
+                    {holeKeys
+                      .filter(k => canFitGroup(k))
+                      .map(holeKey => (
+                        <option key={holeKey} value={holeKey}>
+                          {holeLabel(holeKey, bUnlocked)} ({getAvailableSpots(holeKey)} spots)
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {/* Group B holes with available spots (only if unlocked) */}
+                {bUnlocked && bHoleKeys.some(k => canFitGroup(k)) && (
                   <optgroup label="Group B">
-                    {bHoleKeys.map(holeKey => (
-                      <option key={holeKey} value={holeKey}>
-                        Hole {holeKey}
-                      </option>
-                    ))}
+                    {bHoleKeys
+                      .filter(k => canFitGroup(k))
+                      .map(holeKey => (
+                        <option key={holeKey} value={holeKey}>
+                          Hole {holeKey} ({getAvailableSpots(holeKey)} spots)
+                        </option>
+                      ))}
                   </optgroup>
                 )}
               </select>
