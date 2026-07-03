@@ -237,6 +237,32 @@ export default function SignupForm({ players, onSignedUp }) {
     loadWeek()
   }, [])
 
+  // Real-time subscription to weekly_players changes
+  useEffect(() => {
+    if (!weekKey) return
+    
+    const channel = supabase
+      .channel(`weekly_players:${weekKey}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'weekly_players',
+          filter: `week_number=eq.${weekKey}`,
+        },
+        async (payload) => {
+          // Reload holes on any change (INSERT, UPDATE, DELETE)
+          await reloadHoles()
+        }
+      )
+      .subscribe()
+    
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [weekKey])
+
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
     .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '' }))
