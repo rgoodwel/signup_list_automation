@@ -189,7 +189,7 @@ export default function SignupForm({ players, onSignedUp }) {
                   id: row.id,
                   name: row.player_name,
                   email: row.player_email,
-                  isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+                  isPrimary: !row.is_guest,
                 })
               }
             }
@@ -246,7 +246,7 @@ export default function SignupForm({ players, onSignedUp }) {
               id: row.id,
               name: row.player_name,
               email: row.player_email,
-              isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+              isPrimary: !row.is_guest,
             })
           }
         }
