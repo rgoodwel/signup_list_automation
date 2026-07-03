@@ -176,6 +176,7 @@ export default function SignupForm({ players, onSignedUp }) {
   const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
+  const [removal, setRemoval] = useState(null)
 
   // Async state for current week
   const [weekKey, setWeekKey] = useState(null)
