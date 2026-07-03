@@ -414,6 +414,10 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
 
     const signupId = createId()
 
+    console.log('DEBUG: Inserting primary player', {
+      weekKey, name: name.trim(), email: emailKey, holeNumber, holeGroup, signupId
+    })
+
     const { error: insertError } = await supabase
       .from('weekly_players')
       .insert({
@@ -427,9 +431,17 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         primary_player_email: emailKey,
       })
     
-    if (insertError) throw insertError
+    if (insertError) {
+      console.error('DEBUG: Primary player insert failed:', insertError)
+      throw insertError
+    }
 
-    for (const guestName of extras) {
+    console.log('DEBUG: Primary player inserted, extras count:', extras.length)
+
+    for (let i = 0; i < extras.length; i++) {
+      const guestName = extras[i]
+      console.log(`DEBUG: Inserting guest ${i + 1}/${extras.length}:`, guestName)
+      
       const { error: guestError } = await supabase
         .from('weekly_players')
         .insert({
@@ -443,7 +455,11 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
           primary_player_email: emailKey,
         })
       
-      if (guestError) throw guestError
+      if (guestError) {
+        console.error(`DEBUG: Guest ${i + 1} insert failed:`, guestError)
+        throw guestError
+      }
+      console.log(`DEBUG: Guest ${i + 1} inserted successfully`)
     }
 
     if (!week.b_groups_unlocked) {
