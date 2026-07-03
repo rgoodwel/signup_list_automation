@@ -282,17 +282,15 @@ export default function SignupForm({ players, onSignedUp }) {
   }
 
   /**
-   * Get available spots in a hole, accounting for the user's full group
-   * (primary + active additional players)
+   * Get available spots in a hole (just the remaining capacity)
    */
   function getAvailableSpots(holeKey) {
     const currentPlayers = holes[holeKey]?.length ?? 0
-    const groupSize = 1 + additionalCount // primary + additional players
     const capacity = HOLE_CAPACITY
-    return Math.max(0, capacity - currentPlayers - groupSize)
+    return Math.max(0, capacity - currentPlayers)
   }
 
-  /** Check if a hole has at least one available spot for the full group */
+  /** Check if a hole has enough space for the full group */
   function canFitGroup(holeKey) {
     const currentPlayers = holes[holeKey]?.length ?? 0
     const groupSize = 1 + additionalCount
