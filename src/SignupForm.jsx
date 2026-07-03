@@ -316,7 +316,9 @@ export default function SignupForm({ players, onSignedUp }) {
       additionalPlayers: additionalPlayers.slice(0, additionalCount),
     })
     if (result.ok) {
-      setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You're signed up.` })
+      const holeDisplay = result.holeKey.endsWith('B') ? result.holeKey : `Hole ${result.holeKey}`
+      const withFriends = result.extraCount > 0 ? ` with your friends` : ''
+      setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You have been added to ${holeDisplay}${withFriends}.` })
       setName('')
       setEmail('')
       setHole('AUTO')

@@ -503,7 +503,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       }
     }
 
-    return { ok: true }
+    return { ok: true, holeKey, extraCount: extras.length }
   } catch (err) {
     console.error('Error adding signup:', err?.message || err, err?.details || '')
     return { ok: false, reason: `Error: ${err?.message || 'An error occurred while processing your signup. Please try again.'}` }
