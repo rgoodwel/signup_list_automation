@@ -36,6 +36,33 @@ function AlertModal({ popup, onClose }) {
   )
 }
 
+/**
+ * Removal confirmation modal with danger styling.
+ * Shows player name and hole, with Cancel/Remove buttons.
+ */
+function RemovalConfirmationModal({ removal, onConfirm, onCancel }) {
+  if (!removal) return null
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <p className="modal-title">🗑️ Remove Player?</p>
+        <div className="modal-body">
+          <p style={{ margin: 0 }}>
+            Remove <strong>{removal.playerName}</strong> from <strong>{removal.holeKey}</strong>?
+          </p>
+          <p style={{ margin: '10px 0 0', fontSize: '13px', color: 'var(--muted)' }}>
+            This action cannot be undone.
+          </p>
+        </div>
+        <div className="modal-actions" style={{ gap: '8px' }}>
+          <button className="modal-cancel" onClick={onCancel}>Cancel</button>
+          <button className="modal-confirm-danger" onClick={onConfirm}>Remove</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Returns the display label for a hole card / dropdown option. */
 function holeLabel(holeKey, bGroupsUnlocked) {
   if (holeKey.endsWith('B')) return `Hole ${holeKey}`
@@ -385,12 +412,19 @@ export default function SignupForm({ players, onSignedUp }) {
     setAdditionalCount(count => Math.max(0, count - 1))
   }
 
-  async function handleRemove(holeKey, player) {
+  function handleRemove(holeKey, player) {
     if (!weekKey) return
-    if (!confirm(`Remove ${player.name} from Hole ${holeKey}?`)) return
-    const result = await removePlayerFromHole({ weekKey, hole: holeKey, playerId: player.id })
+    setRemoval({ playerName: player.name, holeKey, holeId: holeKey, playerId: player.id })
+  }
+
+  async function confirmRemove() {
+    const { playerName, playerId } = removal
+    const holeKey = removal.holeKey
+    setRemoval(null)
+    
+    const result = await removePlayerFromHole({ weekKey, hole: holeKey, playerId })
     if (result.ok) {
-      setMsg({ type: 'success', text: `${player.name} was removed.` })
+      setMsg({ type: 'success', text: `${playerName} was removed.` })
       await reloadHoles()
       if (onSignedUp) await onSignedUp()
     } else {
@@ -435,6 +469,7 @@ export default function SignupForm({ players, onSignedUp }) {
   return (
     <section>
       <AlertModal popup={popup} onClose={() => setPopup(null)} />
+      <RemovalConfirmationModal removal={removal} onConfirm={confirmRemove} onCancel={() => setRemoval(null)} />
       {loading ? (
         <div className="closed-notice">
           <p className="week-closed-notice">⏳ Loading signup information...</p>
