@@ -440,8 +440,8 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
 
     return { ok: true }
   } catch (err) {
-    console.error('Error adding signup:', err)
-    return { ok: false, reason: 'An error occurred while processing your signup. Please try again.' }
+    console.error('Error adding signup:', err?.message || err, err?.details || '')
+    return { ok: false, reason: `Error: ${err?.message || 'An error occurred while processing your signup. Please try again.'}` }
   }
 }
 
