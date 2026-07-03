@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { initializeStorage, refreshFromBackend, getPlayers, getWeeks } from './storage'
 import SignupForm from './SignupForm'
 import AdminView from './AdminView'
-import SupabaseTest from './SupabaseTest'
 
 export default function App() {
-  const [view, setView]       = useState('player') // 'player' | 'admin' | 'supabase-test'
+  const [view, setView]       = useState('player') // 'player' | 'admin'
   const [players, setPlayers] = useState({})
   const [weeks, setWeeks]     = useState({})
   const [ready, setReady]     = useState(false)
@@ -50,13 +49,6 @@ export default function App() {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               className="btn btn-ghost"
-              onClick={() => setView('supabase-test')}
-              style={{ fontSize: '12px', padding: '6px 10px' }}
-            >
-              🔌 Test DB
-            </button>
-            <button
-              className="btn btn-ghost"
               onClick={() => setView(v => v === 'admin' ? 'player' : 'admin')}
             >
               {view === 'admin' ? '← Player View' : 'Admin ⚙'}
@@ -66,9 +58,7 @@ export default function App() {
       </header>
 
       <main>
-        {view === 'supabase-test' ? (
-          <SupabaseTest />
-        ) : view === 'player' ? (
+        {view === 'player' ? (
           <SignupForm players={players} onSignedUp={refresh} />
         ) : (
           <AdminView players={players} weeks={weeks} onRefresh={refresh} />
@@ -76,7 +66,7 @@ export default function App() {
       </main>
 
       <footer>
-        <small>Stored in Supabase PostgreSQL database.</small>
+        
       </footer>
     </div>
   )

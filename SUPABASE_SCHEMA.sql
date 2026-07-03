@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS weekly_players (
   player_email TEXT,          -- NULL for guest players
   hole_number TEXT NOT NULL,  -- "1"-"9" or "1B"-"9B"
   hole_group TEXT NOT NULL,   -- "A" or "B"
-  signup_id TEXT UNIQUE,      -- Identifier for the primary signup group
+  signup_id TEXT,             -- Identifier for the primary signup group (non-unique, allows guests to share)
   is_guest BOOLEAN DEFAULT FALSE,
   primary_player_email TEXT,  -- Links guest to their primary player
   created_at TIMESTAMP DEFAULT NOW(),
@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS weekly_players (
   -- Foreign key to weeks table
   CONSTRAINT fk_week_number FOREIGN KEY (week_number) REFERENCES weeks(week_key) ON DELETE CASCADE
 );
+
+-- Each primary player email can only sign up once per week (partial unique index)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_players_week_email_primary 
+  ON weekly_players(week_number, player_email) 
+  WHERE is_guest = false AND player_email IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_weekly_players_week ON weekly_players(week_number);
 CREATE INDEX IF NOT EXISTS idx_weekly_players_email ON weekly_players(player_email);

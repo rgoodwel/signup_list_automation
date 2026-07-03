@@ -36,6 +36,33 @@ function AlertModal({ popup, onClose }) {
   )
 }
 
+/**
+ * Removal confirmation modal with danger styling.
+ * Shows player name and hole, with Cancel/Remove buttons.
+ */
+function RemovalConfirmationModal({ removal, onConfirm, onCancel }) {
+  if (!removal) return null
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <p className="modal-title">🗑️ Remove Player?</p>
+        <div className="modal-body">
+          <p style={{ margin: 0 }}>
+            Remove <strong>{removal.playerName}</strong> from <strong>{removal.holeKey}</strong>?
+          </p>
+          <p style={{ margin: '10px 0 0', fontSize: '13px', color: 'var(--muted)' }}>
+            This action cannot be undone.
+          </p>
+        </div>
+        <div className="modal-actions" style={{ gap: '8px' }}>
+          <button className="modal-cancel" onClick={onCancel}>Cancel</button>
+          <button className="modal-confirm-danger" onClick={onConfirm}>Remove</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Returns the display label for a hole card / dropdown option. */
 function holeLabel(holeKey, bGroupsUnlocked) {
   if (holeKey.endsWith('B')) return `Hole ${holeKey}`
@@ -149,6 +176,7 @@ export default function SignupForm({ players, onSignedUp }) {
   const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
+  const [removal, setRemoval] = useState(null)
 
   // Async state for current week
   const [weekKey, setWeekKey] = useState(null)
@@ -189,7 +217,7 @@ export default function SignupForm({ players, onSignedUp }) {
                   id: row.id,
                   name: row.player_name,
                   email: row.player_email,
-                  isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+                  isPrimary: !row.is_guest,
                 })
               }
             }
@@ -209,6 +237,32 @@ export default function SignupForm({ players, onSignedUp }) {
     loadWeek()
   }, [])
 
+  // Real-time subscription to weekly_players changes
+  useEffect(() => {
+    if (!weekKey) return
+    
+    const channel = supabase
+      .channel(`weekly_players:${weekKey}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'weekly_players',
+          filter: `week_number=eq.${weekKey}`,
+        },
+        async (payload) => {
+          // Reload holes on any change (INSERT, UPDATE, DELETE)
+          await reloadHoles()
+        }
+      )
+      .subscribe()
+    
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [weekKey])
+
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
     .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '' }))
@@ -225,6 +279,23 @@ export default function SignupForm({ players, onSignedUp }) {
 
   function showError(title, message, hint) {
     setPopup({ title, message, hint: hint || null })
+  }
+
+  /**
+   * Get available spots in a hole (just the remaining capacity)
+   */
+  function getAvailableSpots(holeKey) {
+    const currentPlayers = holes[holeKey]?.length ?? 0
+    const capacity = HOLE_CAPACITY
+    return Math.max(0, capacity - currentPlayers)
+  }
+
+  /** Check if a hole has enough space for the full group */
+  function canFitGroup(holeKey) {
+    const currentPlayers = holes[holeKey]?.length ?? 0
+    const groupSize = 1 + additionalCount
+    const capacity = HOLE_CAPACITY
+    return currentPlayers + groupSize <= capacity
   }
 
   async function reloadHoles() {
@@ -246,7 +317,7 @@ export default function SignupForm({ players, onSignedUp }) {
               id: row.id,
               name: row.player_name,
               email: row.player_email,
-              isPrimary: row.player_email === row.primary_player_email || !row.is_guest,
+              isPrimary: !row.is_guest,
             })
           }
         }
@@ -316,7 +387,11 @@ export default function SignupForm({ players, onSignedUp }) {
       additionalPlayers: additionalPlayers.slice(0, additionalCount),
     })
     if (result.ok) {
-      setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You're signed up.` })
+      const group = result.holeKey.endsWith('B') ? 'B' : 'A'
+      const holeNumber = result.holeKey.replace(/B$/, '')
+      const holeDisplay = `Hole ${holeNumber}${group}`
+      const withFriends = result.extraCount > 0 ? ` with your friends` : ''
+      setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You have been added to ${holeDisplay}${withFriends}.` })
       setName('')
       setEmail('')
       setHole('AUTO')
@@ -381,14 +456,21 @@ export default function SignupForm({ players, onSignedUp }) {
     setAdditionalCount(count => Math.max(0, count - 1))
   }
 
-  async function handleRemove(holeKey, player) {
+  function handleRemove(holeKey, player) {
     if (!weekKey) return
-    if (!confirm(`Remove ${player.name} from Hole ${holeKey}?`)) return
-    const result = await removePlayerFromHole({ weekKey, hole: holeKey, playerId: player.id })
+    setRemoval({ playerName: player.name, holeKey, holeId: holeKey, playerId: player.id })
+  }
+
+  async function confirmRemove() {
+    const { playerName, playerId } = removal
+    const holeKey = removal.holeKey
+    setRemoval(null)
+    
+    const result = await removePlayerFromHole({ weekKey, hole: holeKey, playerId })
     if (result.ok) {
-      setMsg({ type: 'success', text: `${player.name} was removed.` })
+      setMsg({ type: 'success', text: `${playerName} was removed.` })
+      await reloadHoles()
       if (onSignedUp) await onSignedUp()
-      forceUpdate(n => n + 1)
     } else {
       showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact an administrator.')
     }
@@ -411,8 +493,8 @@ export default function SignupForm({ players, onSignedUp }) {
         playerId: data.playerId,
       })
       if (result.ok) {
+        await reloadHoles()
         if (onSignedUp) await onSignedUp()
-        forceUpdate(n => n + 1)
       } else {
         showError(
           'Cannot Move Player',
@@ -422,7 +504,8 @@ export default function SignupForm({ players, onSignedUp }) {
             : 'Try refreshing the page and moving again.',
         )
       }
-    } catch {
+    } catch (err) {
+      console.error('Error moving player:', err)
       showError('Cannot Move Player', 'An unexpected error occurred while moving the player.', 'Try refreshing the page and dragging again.')
     }
   }
@@ -430,6 +513,7 @@ export default function SignupForm({ players, onSignedUp }) {
   return (
     <section>
       <AlertModal popup={popup} onClose={() => setPopup(null)} />
+      <RemovalConfirmationModal removal={removal} onConfirm={confirmRemove} onCancel={() => setRemoval(null)} />
       {loading ? (
         <div className="closed-notice">
           <p className="week-closed-notice">⏳ Loading signup information...</p>
@@ -470,20 +554,28 @@ export default function SignupForm({ players, onSignedUp }) {
                 <option value="AUTO">
                   Automatic Assignment
                 </option>
-                <optgroup label="Group A">
-                  {holeKeys.map(holeKey => (
-                    <option key={holeKey} value={holeKey}>
-                      {holeLabel(holeKey, bUnlocked)}
-                    </option>
-                  ))}
-                </optgroup>
-                {bUnlocked && (
+                {/* Group A holes with available spots */}
+                {holeKeys.some(k => canFitGroup(k)) && (
+                  <optgroup label="Group A">
+                    {holeKeys
+                      .filter(k => canFitGroup(k))
+                      .map(holeKey => (
+                        <option key={holeKey} value={holeKey}>
+                          {holeLabel(holeKey, bUnlocked)} ({getAvailableSpots(holeKey)} spots)
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {/* Group B holes with available spots (only if unlocked) */}
+                {bUnlocked && bHoleKeys.some(k => canFitGroup(k)) && (
                   <optgroup label="Group B">
-                    {bHoleKeys.map(holeKey => (
-                      <option key={holeKey} value={holeKey}>
-                        Hole {holeKey}
-                      </option>
-                    ))}
+                    {bHoleKeys
+                      .filter(k => canFitGroup(k))
+                      .map(holeKey => (
+                        <option key={holeKey} value={holeKey}>
+                          Hole {holeKey} ({getAvailableSpots(holeKey)} spots)
+                        </option>
+                      ))}
                   </optgroup>
                 )}
               </select>
@@ -526,6 +618,7 @@ export default function SignupForm({ players, onSignedUp }) {
               <span className="signup-player-count">{totalAllPlayers} player{totalAllPlayers !== 1 ? 's' : ''} signed up</span>
             </div>
           </form>
+          {msg && <p className={`form-msg form-msg--${msg.type}`}>{msg.text}</p>}
           <div className="holes-grid">
             {holeKeys.map(holeKey => (
               <div
@@ -610,7 +703,6 @@ export default function SignupForm({ players, onSignedUp }) {
           )}
         </>
       )}
-      {msg && <p className={`form-msg form-msg--${msg.type}`}>{msg.text}</p>}
     </section>
   )
 }

@@ -259,12 +259,12 @@ export async function getPlayers() {
 
 async function countAGroupPlayers(weekKey) {
   try {
+    // Count ALL players (primary + guests) in A-group, not just primaries
     const { data, error } = await supabase
       .from('weekly_players')
       .select('id', { count: 'exact' })
       .eq('week_number', weekKey)
       .eq('hole_group', 'A')
-      .eq('is_guest', false)
     
     if (error) throw error
     return data?.length || 0
@@ -320,9 +320,27 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       return { ok: false, reason: "You're already signed up for this week!" }
     }
 
-    const week = await getWeek(weekKey)
+    let week = await getWeek(weekKey)
     if (!week) {
-      return { ok: false, reason: 'Week record not found.' }
+      // Auto-create the week if it doesn't exist (in case admin_settings has been set but week not created yet)
+      try {
+        const { error: createError } = await supabase
+          .from('weeks')
+          .insert({
+            week_key: weekKey,
+            opened_at: new Date().toISOString(),
+            closed_at: null,
+            b_groups_unlocked: false,
+          })
+        if (createError) throw createError
+        week = await getWeek(weekKey)
+      } catch (err) {
+        console.error('Error creating week:', err)
+        return { ok: false, reason: 'Could not create week record. Please contact an administrator.' }
+      }
+      if (!week) {
+        return { ok: false, reason: 'Week record could not be created. Please contact an administrator.' }
+      }
     }
 
     const extras = additionalPlayers
@@ -330,11 +348,29 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       .filter(Boolean)
       .slice(0, 3)
     
+    // Validate all additional players
     for (const extra of extras) {
       if (!isFullName(extra)) {
         return {
           ok: false,
           reason: `"${extra}" — additional player names must include a first and last name (e.g., "John Smith").`,
+        }
+      }
+    }
+    
+    // Check for duplicate guest names in the same week
+    for (const guestName of extras) {
+      const { data: existing } = await supabase
+        .from('weekly_players')
+        .select('id')
+        .eq('week_number', weekKey)
+        .ilike('player_name', guestName.trim())
+        .single()
+      
+      if (existing) {
+        return {
+          ok: false,
+          reason: `"${guestName}" is already signed up for this week. Each player can only appear once.`,
         }
       }
     }
@@ -344,30 +380,43 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     const autoRequested = requestedHole === 'AUTO' || requestedHole === ''
 
     if (autoRequested) {
-      // Always try A-group first (holes 1-9)
+      const groupSize = 1 + extras.length
+      let bestHole = null
+      let bestCapacity = -1
+      
+      // Always try A-group first (holes 1-9) - pick the hole with BEST FIT
       for (let i = 1; i <= HOLE_COUNT; i++) {
         const players = await getHolePlayers(weekKey, String(i), 'A')
-        if (players.length < HOLE_CAPACITY) {
-          holeKey = String(i)
-          break
+        const available = HOLE_CAPACITY - players.length
+        
+        // If this hole fits the group and has less wasted space, it's better
+        if (available >= groupSize && (bestCapacity === -1 || available < bestCapacity)) {
+          bestHole = String(i)
+          bestCapacity = available
         }
       }
-      // If A-group is full and B-group is unlocked, try B-group
-      if (!holeKey && week.b_groups_unlocked) {
+      
+      // If A-group has no good fit and B-group is unlocked, try B-group
+      if (!bestHole && week.b_groups_unlocked) {
         for (let i = 1; i <= HOLE_COUNT; i++) {
           const players = await getHolePlayers(weekKey, String(i), 'B')
-          if (players.length < HOLE_CAPACITY) {
-            holeKey = `${i}B`
-            break
+          const available = HOLE_CAPACITY - players.length
+          
+          if (available >= groupSize && (bestCapacity === -1 || available < bestCapacity)) {
+            bestHole = `${i}B`
+            bestCapacity = available
           }
         }
       }
-      if (!holeKey) {
+      
+      if (!bestHole) {
         return {
           ok: false,
-          reason: 'No empty hole is available for automatic assignment. Please choose a specific hole.',
+          reason: `No hole has enough space for ${groupSize} player(s). Please choose a specific hole or reduce additional players.`,
         }
       }
+      
+      holeKey = bestHole
     } else {
       holeKey = normalizeHole(hole)
       if (!holeKey) {
@@ -396,6 +445,10 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
 
     const signupId = createId()
 
+    console.log('DEBUG: Inserting primary player', {
+      weekKey, name: name.trim(), email: emailKey, holeNumber, holeGroup, signupId
+    })
+
     const { error: insertError } = await supabase
       .from('weekly_players')
       .insert({
@@ -409,9 +462,17 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         primary_player_email: emailKey,
       })
     
-    if (insertError) throw insertError
+    if (insertError) {
+      console.error('DEBUG: Primary player insert failed:', insertError)
+      throw insertError
+    }
 
-    for (const guestName of extras) {
+    console.log('DEBUG: Primary player inserted, extras count:', extras.length)
+
+    for (let i = 0; i < extras.length; i++) {
+      const guestName = extras[i]
+      console.log(`DEBUG: Inserting guest ${i + 1}/${extras.length}:`, guestName)
+      
       const { error: guestError } = await supabase
         .from('weekly_players')
         .insert({
@@ -425,7 +486,11 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
           primary_player_email: emailKey,
         })
       
-      if (guestError) throw guestError
+      if (guestError) {
+        console.error(`DEBUG: Guest ${i + 1} insert failed:`, guestError)
+        throw guestError
+      }
+      console.log(`DEBUG: Guest ${i + 1} inserted successfully`)
     }
 
     if (!week.b_groups_unlocked) {
@@ -438,10 +503,10 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       }
     }
 
-    return { ok: true }
+    return { ok: true, holeKey, extraCount: extras.length }
   } catch (err) {
-    console.error('Error adding signup:', err)
-    return { ok: false, reason: 'An error occurred while processing your signup. Please try again.' }
+    console.error('Error adding signup:', err?.message || err, err?.details || '')
+    return { ok: false, reason: `Error: ${err?.message || 'An error occurred while processing your signup. Please try again.'}` }
   }
 }
 
