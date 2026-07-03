@@ -387,8 +387,8 @@ export default function SignupForm({ players, onSignedUp }) {
     const result = await removePlayerFromHole({ weekKey, hole: holeKey, playerId: player.id })
     if (result.ok) {
       setMsg({ type: 'success', text: `${player.name} was removed.` })
+      await reloadHoles()
       if (onSignedUp) await onSignedUp()
-      forceUpdate(n => n + 1)
     } else {
       showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact an administrator.')
     }
@@ -411,8 +411,8 @@ export default function SignupForm({ players, onSignedUp }) {
         playerId: data.playerId,
       })
       if (result.ok) {
+        await reloadHoles()
         if (onSignedUp) await onSignedUp()
-        forceUpdate(n => n + 1)
       } else {
         showError(
           'Cannot Move Player',
@@ -422,7 +422,8 @@ export default function SignupForm({ players, onSignedUp }) {
             : 'Try refreshing the page and moving again.',
         )
       }
-    } catch {
+    } catch (err) {
+      console.error('Error moving player:', err)
       showError('Cannot Move Player', 'An unexpected error occurred while moving the player.', 'Try refreshing the page and dragging again.')
     }
   }
