@@ -228,6 +228,28 @@ export async function closeCurrentWeek() {
   }
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// Audit logging helper
+// ────────────────────────────────────────────────────────────────────────
+async function logAuditEvent(weekKey, operation, playerName, playerEmail, holeNumber, holeGroup, details = {}) {
+  try {
+    await supabase
+      .from('weekly_players_audit_log')
+      .insert({
+        week_number: weekKey,
+        operation,
+        player_name: playerName,
+        player_email: playerEmail,
+        hole_number: holeNumber,
+        hole_group: holeGroup,
+        details,
+      })
+  } catch (err) {
+    console.error('Error logging audit event:', err)
+    // Don't throw - logging failures shouldn't break the operation
+  }
+}
+
 export async function getPlayers() {
   try {
     const { data, error } = await supabase
@@ -467,6 +489,12 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       throw insertError
     }
 
+    // Log the primary player signup
+    await logAuditEvent(weekKey, 'CREATE', name.trim(), emailKey, holeNumber, holeGroup, {
+      type: 'primary',
+      groupSize: 1 + extras.length,
+    })
+
     console.log('DEBUG: Primary player inserted, extras count:', extras.length)
 
     for (let i = 0; i < extras.length; i++) {
@@ -490,6 +518,12 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         console.error(`DEBUG: Guest ${i + 1} insert failed:`, guestError)
         throw guestError
       }
+      
+      // Log the guest signup
+      await logAuditEvent(weekKey, 'CREATE', guestName.trim(), null, holeNumber, holeGroup, {
+        type: 'guest',
+        primaryPlayer: emailKey,
+      })
       console.log(`DEBUG: Guest ${i + 1} inserted successfully`)
     }
 
@@ -512,12 +546,27 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
 
 export async function removePlayerFromHole({ weekKey, hole, playerId }) {
   try {
+    // Fetch player data before deleting for logging
+    const { data: player } = await supabase
+      .from('weekly_players')
+      .select('player_name, player_email, hole_number, hole_group')
+      .eq('id', playerId)
+      .single()
+    
     const { error } = await supabase
       .from('weekly_players')
       .delete()
       .eq('id', playerId)
     
     if (error) throw error
+    
+    // Log the removal
+    if (player) {
+      await logAuditEvent(weekKey, 'DELETE', player.player_name, player.player_email, player.hole_number, player.hole_group, {
+        action: 'player_removed',
+      })
+    }
+    
     return { ok: true }
   } catch (err) {
     console.error('Error removing player:', err)
@@ -538,6 +587,13 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
       return { ok: false, reason: `Hole ${toKey} is full.` }
     }
 
+    // Fetch player data before updating for logging
+    const { data: player } = await supabase
+      .from('weekly_players')
+      .select('player_name, player_email, hole_number, hole_group')
+      .eq('id', playerId)
+      .single()
+
     const { error } = await supabase
       .from('weekly_players')
       .update({
@@ -547,10 +603,37 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
       .eq('id', playerId)
     
     if (error) throw error
+    
+    // Log the move
+    if (player) {
+      await logAuditEvent(weekKey, 'UPDATE', player.player_name, player.player_email, toNumber, toGroup, {
+        action: 'player_moved',
+        fromHole: `${player.hole_number}${player.hole_group}`,
+        toHole: `${toNumber}${toGroup}`,
+      })
+    }
+    
     return { ok: true }
   } catch (err) {
     console.error('Error moving player:', err)
     return { ok: false, reason: 'Failed to move player.' }
+  }
+}
+
+export async function getAuditLogs(weekKey, limit = 100) {
+  try {
+    const { data, error } = await supabase
+      .from('weekly_players_audit_log')
+      .select('*')
+      .eq('week_number', weekKey)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    
+    if (error) throw error
+    return data || []
+  } catch (err) {
+    console.error('Error fetching audit logs:', err)
+    return []
   }
 }
 
