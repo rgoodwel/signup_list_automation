@@ -726,18 +726,20 @@ export default function SignupForm({ players, onSignedUp }) {
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => handleDrop(e, holeKey)}
               >
-                <h3>{holeLabel(holeKey, bUnlocked)}</h3>
+                <div className="hole-card-header">
+                  <h3>{holeLabel(holeKey, bUnlocked)}</h3>
+                  {(holes[holeKey] || []).length > 0 && (
+                    <button
+                      type="button"
+                      className="btn-bulk-move"
+                      onClick={() => handleBulkMoveClick(holeKey)}
+                      title={`Move all ${(holes[holeKey] || []).length} player${(holes[holeKey] || []).length !== 1 ? 's' : ''}`}
+                    >
+                      🔀
+                    </button>
+                  )}
+                </div>
                 <p className="hole-count">{(holes[holeKey] || []).length}/{HOLE_CAPACITY}</p>
-                {(holes[holeKey] || []).length > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => handleBulkMoveClick(holeKey)}
-                    style={{ width: '100%', marginBottom: '8px', fontSize: '12px' }}
-                  >
-                    🔀 Move All ({(holes[holeKey] || []).length})
-                  </button>
-                )}
                 {(holes[holeKey] || []).length === 0 ? (
                   <p className="empty">No players.</p>
                 ) : (
@@ -780,18 +782,20 @@ export default function SignupForm({ players, onSignedUp }) {
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleDrop(e, holeKey)}
                   >
-                    <h3>Hole {holeKey}</h3>
+                    <div className="hole-card-header">
+                      <h3>Hole {holeKey}</h3>
+                      {(holes[holeKey] || []).length > 0 && (
+                        <button
+                          type="button"
+                          className="btn-bulk-move"
+                          onClick={() => handleBulkMoveClick(holeKey)}
+                          title={`Move all ${(holes[holeKey] || []).length} player${(holes[holeKey] || []).length !== 1 ? 's' : ''}`}
+                        >
+                          🔀
+                        </button>
+                      )}
+                    </div>
                     <p className="hole-count">{(holes[holeKey] || []).length}/{HOLE_CAPACITY}</p>
-                    {(holes[holeKey] || []).length > 0 && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleBulkMoveClick(holeKey)}
-                        style={{ width: '100%', marginBottom: '8px', fontSize: '12px' }}
-                      >
-                        🔀 Move All ({(holes[holeKey] || []).length})
-                      </button>
-                    )}
                     {(holes[holeKey] || []).length === 0 ? (
                       <p className="empty">No players.</p>
                     ) : (
