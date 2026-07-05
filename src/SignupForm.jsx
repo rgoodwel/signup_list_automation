@@ -279,6 +279,16 @@ export default function SignupForm({ players, onSignedUp }) {
   const totalAllPlayers = totalAPlayers + totalBPlayers
   const bUnlockRemaining = Math.max(0, B_GROUP_THRESHOLD - totalAPlayers)
 
+  // Derived values for bulk move modal — recomputed every render so checkboxes update the list instantly
+  const bulkSelectedCount = bulkMove?.selectedPlayerIds.size ?? 0
+  const bulkCandidateHoles = bulkMove
+    ? [...holeKeys, ...(bUnlocked ? bHoleKeys : [])].filter(h => h !== bulkMove.sourceHole)
+    : []
+  const bulkAvailableHoles = bulkCandidateHoles.filter(
+    h => (holes[h] || []).length + bulkSelectedCount <= HOLE_CAPACITY
+  )
+  const bulkUnavailableCount = bulkCandidateHoles.length - bulkAvailableHoles.length
+
   function showError(title, message, hint) {
     setPopup({ title, message, hint: hint || null })
   }
@@ -599,11 +609,11 @@ export default function SignupForm({ players, onSignedUp }) {
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <p className="modal-title">🔀 Move Players</p>
             <div className="modal-body">
-              <p style={{ margin: '0 0 12px' }}>
-                From <strong>Hole {bulkMove.sourceHole}</strong> to which hole?
+              <p style={{ margin: '0 0 10px', fontSize: '14px' }}>
+                From <strong>Hole {bulkMove.sourceHole}</strong>
               </p>
-              <p style={{ margin: '0 0 8px', fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
-                Select players to move:
+              <p style={{ margin: '0 0 6px', fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
+                Players to move:
               </p>
               <div className="bulk-move-player-list">
                 {bulkMove.players.map(player => (
@@ -617,53 +627,37 @@ export default function SignupForm({ players, onSignedUp }) {
                   </label>
                 ))}
               </div>
-              <p style={{ margin: '8px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
-                {bulkMove.selectedPlayerIds.size} of {bulkMove.players.length} selected
+              <p style={{ margin: '6px 0 14px', fontSize: '12px', color: 'var(--muted)' }}>
+                {bulkSelectedCount} of {bulkMove.players.length} selected
               </p>
+              <p style={{ margin: '0 0 6px', fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
+                Move to hole:
+              </p>
+              <div className="bulk-move-dest-list">
+                {bulkAvailableHoles.length === 0 && (
+                  <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0 }}>
+                    {bulkSelectedCount === 0 ? 'Select at least one player.' : 'No holes have enough space.'}
+                  </p>
+                )}
+                {bulkAvailableHoles.map(destHole => (
+                  <button
+                    key={destHole}
+                    className="btn btn-primary"
+                    onClick={() => handleBulkMoveToHole(destHole)}
+                    style={{ textAlign: 'left', padding: '8px 12px', fontSize: '13px' }}
+                  >
+                    Hole {destHole} &nbsp;<span style={{ opacity: .7, fontWeight: 400 }}>({HOLE_CAPACITY - (holes[destHole] || []).length} spots)</span>
+                  </button>
+                ))}
+                {bulkUnavailableCount > 0 && (
+                  <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '4px 0 0' }}>
+                    {bulkUnavailableCount} hole{bulkUnavailableCount !== 1 ? 's' : ''} can't fit {bulkSelectedCount} player{bulkSelectedCount !== 1 ? 's' : ''}.
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
-              {/* Available destination holes based on selected player count */}
-              {(() => {
-                const selectedCount = bulkMove.selectedPlayerIds.size
-                const allHoles = [...holeKeys, ...(bUnlocked ? bHoleKeys : [])]
-                  .filter(h => h !== bulkMove.sourceHole)
-                
-                const availableHoles = allHoles.filter(h => {
-                  const currentCount = (holes[h] || []).length
-                  return currentCount + selectedCount <= HOLE_CAPACITY
-                })
-                
-                const fullHoles = allHoles.filter(h => {
-                  const currentCount = (holes[h] || []).length
-                  return currentCount + selectedCount > HOLE_CAPACITY
-                })
-                
-                return (
-                  <>
-                    {availableHoles.map(destHole => {
-                      const spotsForGroup = HOLE_CAPACITY - (holes[destHole] || []).length
-                      return (
-                        <button
-                          key={destHole}
-                          className="btn btn-primary"
-                          onClick={() => handleBulkMoveToHole(destHole)}
-                          style={{ textAlign: 'left', padding: '10px' }}
-                        >
-                          Hole {destHole} ({spotsForGroup} spots available)
-                        </button>
-                      )
-                    })}
-                    {fullHoles.length > 0 && (
-                      <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', textAlign: 'center' }}>
-                        {fullHoles.length} hole{fullHoles.length !== 1 ? 's' : ''} can't fit {selectedCount} player{selectedCount !== 1 ? 's' : ''}.
-                      </p>
-                    )}
-                  </>
-                )
-              })()}
-              <button className="modal-dismiss" onClick={() => setBulkMove(null)}>
-                Cancel
-              </button>
+            <div className="modal-actions">
+              <button className="modal-cancel" onClick={() => setBulkMove(null)}>Cancel</button>
             </div>
           </div>
         </div>

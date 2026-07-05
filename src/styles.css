@@ -54,11 +54,12 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .hole-card--full{border-color:rgba(178,74,58,0.6)}
 .btn-bulk-move{background:transparent;border:none;cursor:pointer;padding:4px;opacity:.6;transition:opacity .15s;display:flex;align-items:center;justify-content:center}
 .btn-bulk-move:hover{opacity:1}
-.btn-bulk-move img{width:16px;height:16px;display:block}.bulk-move-player-list{display:flex;flex-direction:column;gap:8px;padding:12px;background:#f6f7f8;border-radius:8px;max-height:150px;overflow-y:auto;margin-bottom:8px}
+.btn-bulk-move img{width:16px;height:16px;display:block}.bulk-move-player-list{display:flex;flex-direction:column;gap:8px;padding:10px;background:#f6f7f8;border-radius:8px;max-height:120px;overflow-y:auto;margin-bottom:4px}
 .bulk-move-player-item{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
 .bulk-move-player-item input[type="checkbox"]{cursor:pointer;width:18px;height:18px;accent-color:var(--accent)}
 .bulk-move-player-item .player-name{font-size:14px;color:var(--ink)}
-.bulk-move-player-item:hover .player-name{color:var(--accent)}.hole-count{margin:0 0 8px;color:var(--muted);font-size:13px}
+.bulk-move-player-item:hover .player-name{color:var(--accent)}
+.bulk-move-dest-list{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding-right:2px}.hole-count{margin:0 0 8px;color:var(--muted);font-size:13px}
 .hole-player-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
 .hole-player{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;background:#f6f7f8;border:1px solid rgba(20,40,60,0.08);cursor:grab}
 .btn-remove-player{border:none;background:rgba(178,74,58,0.14);color:var(--danger);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px}
