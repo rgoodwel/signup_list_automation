@@ -48,9 +48,18 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .additional-player-row{display:flex;gap:8px;align-items:center;margin-top:8px}
 .holes-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .hole-card{padding:12px;border:1px solid var(--border);border-radius:10px;background:#fff;min-height:160px}
+.hole-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.hole-card-header h3{margin:0;font-size:15px;color:#15324d;flex:1}
 .hole-card h3{margin:0 0 4px;font-size:15px;color:#15324d}
 .hole-card--full{border-color:rgba(178,74,58,0.6)}
-.hole-count{margin:0 0 8px;color:var(--muted);font-size:13px}
+.btn-bulk-move{background:transparent;border:none;cursor:pointer;padding:4px;opacity:.6;transition:opacity .15s;display:flex;align-items:center;justify-content:center}
+.btn-bulk-move:hover{opacity:1}
+.btn-bulk-move img{width:16px;height:16px;display:block}.bulk-move-player-list{display:flex;flex-direction:column;gap:8px;padding:10px;background:#f6f7f8;border-radius:8px;max-height:120px;overflow-y:auto;margin-bottom:4px}
+.bulk-move-player-item{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.bulk-move-player-item input[type="checkbox"]{cursor:pointer;width:18px;height:18px;accent-color:var(--accent)}
+.bulk-move-player-item .player-name{font-size:14px;color:var(--ink)}
+.bulk-move-player-item:hover .player-name{color:var(--accent)}
+.bulk-move-dest-list{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding-right:2px}.hole-count{margin:0 0 8px;color:var(--muted);font-size:13px}
 .hole-player-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
 .hole-player{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;background:#f6f7f8;border:1px solid rgba(20,40,60,0.08);cursor:grab}
 .btn-remove-player{border:none;background:rgba(178,74,58,0.14);color:var(--danger);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px}

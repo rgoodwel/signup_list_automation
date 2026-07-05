@@ -13,6 +13,7 @@ import {
   B_GROUP_THRESHOLD,
 } from './storage'
 import { supabase } from './utils/supabaseClient'
+import moveIcon from './utils/move_icon.png'
 
 /**
  * Centered modal popup used for all error/warning messages.
@@ -177,6 +178,7 @@ export default function SignupForm({ players, onSignedUp }) {
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
   const [removal, setRemoval] = useState(null)
+  const [bulkMove, setBulkMove] = useState(null) // { sourceHole, players, selectedPlayerIds }
 
   // Async state for current week
   const [weekKey, setWeekKey] = useState(null)
@@ -276,6 +278,16 @@ export default function SignupForm({ players, onSignedUp }) {
   const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalAllPlayers = totalAPlayers + totalBPlayers
   const bUnlockRemaining = Math.max(0, B_GROUP_THRESHOLD - totalAPlayers)
+
+  // Derived values for bulk move modal — recomputed every render so checkboxes update the list instantly
+  const bulkSelectedCount = bulkMove?.selectedPlayerIds.size ?? 0
+  const bulkCandidateHoles = bulkMove
+    ? [...holeKeys, ...(bUnlocked ? bHoleKeys : [])].filter(h => h !== bulkMove.sourceHole)
+    : []
+  const bulkAvailableHoles = bulkCandidateHoles.filter(
+    h => (holes[h] || []).length + bulkSelectedCount <= HOLE_CAPACITY
+  )
+  const bulkUnavailableCount = bulkCandidateHoles.length - bulkAvailableHoles.length
 
   function showError(title, message, hint) {
     setPopup({ title, message, hint: hint || null })
@@ -493,6 +505,11 @@ export default function SignupForm({ players, onSignedUp }) {
         playerId: data.playerId,
       })
       if (result.ok) {
+        // Get player name for success message
+        const player = holes[data.holeKey]?.find(p => p.id === data.playerId)
+        const playerName = player?.name || 'Player'
+        const toHoleLabel = toHole.endsWith('B') ? toHole : `${toHole}A`
+        setMsg({ type: 'success', text: `${playerName} was moved to Hole ${toHoleLabel}.` })
         await reloadHoles()
         if (onSignedUp) await onSignedUp()
       } else {
@@ -510,10 +527,141 @@ export default function SignupForm({ players, onSignedUp }) {
     }
   }
 
+  function handleBulkMoveClick(sourceHole) {
+    const playersInHole = holes[sourceHole] || []
+    if (playersInHole.length === 0) {
+      showError('No Players', `Hole ${sourceHole} has no players to move.`)
+      return
+    }
+    // Default: all players selected
+    const selectedIds = new Set(playersInHole.map(p => p.id))
+    setBulkMove({ sourceHole, players: playersInHole, selectedPlayerIds: selectedIds })
+  }
+
+  function togglePlayerSelection(playerId) {
+    if (!bulkMove) return
+    const newSelected = new Set(bulkMove.selectedPlayerIds)
+    if (newSelected.has(playerId)) {
+      newSelected.delete(playerId)
+    } else {
+      newSelected.add(playerId)
+    }
+    setBulkMove({ ...bulkMove, selectedPlayerIds: newSelected })
+  }
+
+  async function handleBulkMoveToHole(destinationHole) {
+    if (!bulkMove || !weekKey) return
+    const { sourceHole, players, selectedPlayerIds } = bulkMove
+
+    if (selectedPlayerIds.size === 0) {
+      showError('No Players Selected', 'Please select at least one player to move.')
+      return
+    }
+
+    try {
+      const playersToMove = players.filter(p => selectedPlayerIds.has(p.id))
+      let successCount = 0
+      let failureCount = 0
+
+      for (const player of playersToMove) {
+        const result = await movePlayerBetweenHoles({
+          weekKey,
+          fromHole: sourceHole,
+          toHole: destinationHole,
+          playerId: player.id,
+        })
+        if (result.ok) {
+          successCount++
+        } else {
+          failureCount++
+        }
+      }
+
+      setBulkMove(null)
+      await reloadHoles()
+      if (onSignedUp) await onSignedUp()
+
+      if (failureCount === 0) {
+        const destLabel = destinationHole.endsWith('B') ? destinationHole : `${destinationHole}A`
+        setMsg({
+          type: 'success',
+          text: `Moved ${successCount} player${successCount !== 1 ? 's' : ''} from Hole ${sourceHole} to Hole ${destLabel}.`,
+        })
+      } else {
+        showError(
+          'Partial Move',
+          `Moved ${successCount} player(s), but ${failureCount} failed.`,
+          'Some holes may be full. Try moving remaining players individually.',
+        )
+      }
+    } catch (err) {
+      console.error('Error in bulk move:', err)
+      showError('Bulk Move Failed', 'An error occurred while moving players.', 'Try refreshing the page.')
+    }
+  }
+
   return (
     <section>
       <AlertModal popup={popup} onClose={() => setPopup(null)} />
       <RemovalConfirmationModal removal={removal} onConfirm={confirmRemove} onCancel={() => setRemoval(null)} />
+      {bulkMove && (
+        <div className="modal-overlay" onClick={() => setBulkMove(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <p className="modal-title">🔀 Move Players</p>
+            <div className="modal-body">
+              <p style={{ margin: '0 0 10px', fontSize: '14px' }}>
+                From <strong>Hole {bulkMove.sourceHole}</strong>
+              </p>
+              <p style={{ margin: '0 0 6px', fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
+                Players to move:
+              </p>
+              <div className="bulk-move-player-list">
+                {bulkMove.players.map(player => (
+                  <label key={player.id} className="bulk-move-player-item">
+                    <input
+                      type="checkbox"
+                      checked={bulkMove.selectedPlayerIds.has(player.id)}
+                      onChange={() => togglePlayerSelection(player.id)}
+                    />
+                    <span className="player-name">{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                  </label>
+                ))}
+              </div>
+              <p style={{ margin: '6px 0 14px', fontSize: '12px', color: 'var(--muted)' }}>
+                {bulkSelectedCount} of {bulkMove.players.length} selected
+              </p>
+              <p style={{ margin: '0 0 6px', fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
+                Move to hole:
+              </p>
+              <div className="bulk-move-dest-list">
+                {bulkAvailableHoles.length === 0 && (
+                  <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0 }}>
+                    {bulkSelectedCount === 0 ? 'Select at least one player.' : 'No holes have enough space.'}
+                  </p>
+                )}
+                {bulkAvailableHoles.map(destHole => (
+                  <button
+                    key={destHole}
+                    className="btn btn-primary"
+                    onClick={() => handleBulkMoveToHole(destHole)}
+                    style={{ textAlign: 'left', padding: '8px 12px', fontSize: '13px' }}
+                  >
+                    Hole {destHole} &nbsp;<span style={{ opacity: .7, fontWeight: 400 }}>({HOLE_CAPACITY - (holes[destHole] || []).length} spots)</span>
+                  </button>
+                ))}
+                {bulkUnavailableCount > 0 && (
+                  <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '4px 0 0' }}>
+                    {bulkUnavailableCount} hole{bulkUnavailableCount !== 1 ? 's' : ''} can't fit {bulkSelectedCount} player{bulkSelectedCount !== 1 ? 's' : ''}.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="modal-cancel" onClick={() => setBulkMove(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       {loading ? (
         <div className="closed-notice">
           <p className="week-closed-notice">⏳ Loading signup information...</p>
@@ -627,7 +775,19 @@ export default function SignupForm({ players, onSignedUp }) {
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => handleDrop(e, holeKey)}
               >
-                <h3>{holeLabel(holeKey, bUnlocked)}</h3>
+                <div className="hole-card-header">
+                  <h3>{holeLabel(holeKey, bUnlocked)}</h3>
+                  {(holes[holeKey] || []).length > 0 && (
+                    <button
+                      type="button"
+                      className="btn-bulk-move"
+                      onClick={() => handleBulkMoveClick(holeKey)}
+                      title={`Move all ${(holes[holeKey] || []).length} player${(holes[holeKey] || []).length !== 1 ? 's' : ''}`}
+                    >
+                      <img src={moveIcon} alt="Move" />
+                    </button>
+                  )}
+                </div>
                 <p className="hole-count">{(holes[holeKey] || []).length}/{HOLE_CAPACITY}</p>
                 {(holes[holeKey] || []).length === 0 ? (
                   <p className="empty">No players.</p>
@@ -671,7 +831,19 @@ export default function SignupForm({ players, onSignedUp }) {
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleDrop(e, holeKey)}
                   >
-                    <h3>Hole {holeKey}</h3>
+                    <div className="hole-card-header">
+                      <h3>Hole {holeKey}</h3>
+                      {(holes[holeKey] || []).length > 0 && (
+                        <button
+                          type="button"
+                          className="btn-bulk-move"
+                          onClick={() => handleBulkMoveClick(holeKey)}
+                          title={`Move all ${(holes[holeKey] || []).length} player${(holes[holeKey] || []).length !== 1 ? 's' : ''}`}
+                        >
+                          <img src={moveIcon} alt="Move" />
+                        </button>
+                      )}
+                    </div>
                     <p className="hole-count">{(holes[holeKey] || []).length}/{HOLE_CAPACITY}</p>
                     {(holes[holeKey] || []).length === 0 ? (
                       <p className="empty">No players.</p>
