@@ -493,6 +493,11 @@ export default function SignupForm({ players, onSignedUp }) {
         playerId: data.playerId,
       })
       if (result.ok) {
+        // Get player name for success message
+        const player = holes[data.holeKey]?.find(p => p.id === data.playerId)
+        const playerName = player?.name || 'Player'
+        const toHoleLabel = toHole.endsWith('B') ? toHole : `${toHole}A`
+        setMsg({ type: 'success', text: `${playerName} was moved to Hole ${toHoleLabel}.` })
         await reloadHoles()
         if (onSignedUp) await onSignedUp()
       } else {
