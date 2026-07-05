@@ -622,27 +622,45 @@ export default function SignupForm({ players, onSignedUp }) {
               </p>
             </div>
             <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
-              {/* Available destination holes */}
-              {[...holeKeys, ...(bUnlocked ? bHoleKeys : [])]
-                .filter(h => h !== bulkMove.sourceHole)
-                .filter(h => (holes[h] || []).length < HOLE_CAPACITY)
-                .map(destHole => (
-                  <button
-                    key={destHole}
-                    className="btn btn-primary"
-                    onClick={() => handleBulkMoveToHole(destHole)}
-                    style={{ textAlign: 'left', padding: '10px' }}
-                  >
-                    Hole {destHole} ({HOLE_CAPACITY - (holes[destHole] || []).length} spots available)
-                  </button>
-                ))}
-              {[...holeKeys, ...(bUnlocked ? bHoleKeys : [])]
-                .filter(h => h !== bulkMove.sourceHole)
-                .filter(h => (holes[h] || []).length >= HOLE_CAPACITY).length > 0 && (
-                <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', textAlign: 'center' }}>
-                  Other holes are full.
-                </p>
-              )}
+              {/* Available destination holes based on selected player count */}
+              {(() => {
+                const selectedCount = bulkMove.selectedPlayerIds.size
+                const allHoles = [...holeKeys, ...(bUnlocked ? bHoleKeys : [])]
+                  .filter(h => h !== bulkMove.sourceHole)
+                
+                const availableHoles = allHoles.filter(h => {
+                  const currentCount = (holes[h] || []).length
+                  return currentCount + selectedCount <= HOLE_CAPACITY
+                })
+                
+                const fullHoles = allHoles.filter(h => {
+                  const currentCount = (holes[h] || []).length
+                  return currentCount + selectedCount > HOLE_CAPACITY
+                })
+                
+                return (
+                  <>
+                    {availableHoles.map(destHole => {
+                      const spotsForGroup = HOLE_CAPACITY - (holes[destHole] || []).length
+                      return (
+                        <button
+                          key={destHole}
+                          className="btn btn-primary"
+                          onClick={() => handleBulkMoveToHole(destHole)}
+                          style={{ textAlign: 'left', padding: '10px' }}
+                        >
+                          Hole {destHole} ({spotsForGroup} spots available)
+                        </button>
+                      )
+                    })}
+                    {fullHoles.length > 0 && (
+                      <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', textAlign: 'center' }}>
+                        {fullHoles.length} hole{fullHoles.length !== 1 ? 's' : ''} can't fit {selectedCount} player{selectedCount !== 1 ? 's' : ''}.
+                      </p>
+                    )}
+                  </>
+                )
+              })()}
               <button className="modal-dismiss" onClick={() => setBulkMove(null)}>
                 Cancel
               </button>
