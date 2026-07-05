@@ -4,6 +4,7 @@ import CurrentWeekPanel from './CurrentWeekPanel'
 import PlayerHistoryTable from './PlayerHistoryTable'
 import TrendChart from './TrendChart'
 import ExportButtons from './ExportButtons'
+import AuditLogsPanel from './AuditLogsPanel'
 
 // ── PIN gate ──────────────────────────────────────────────────────────────────
 function PinSetup({ onSet }) {
@@ -101,6 +102,7 @@ function PinLogin({ onSuccess }) {
 
 const TABS = [
   { key: 'week',    label: 'Current Week' },
+  { key: 'logs',    label: 'Logs' },
   { key: 'history', label: 'Player History' },
   { key: 'trend',   label: 'Trends' },
   { key: 'export',  label: 'Export' },
@@ -157,6 +159,7 @@ export default function AdminView({ players, weeks, onRefresh }) {
       </div>
 
       {tab === 'week'    && <CurrentWeekPanel onRefresh={onRefresh} />}
+      {tab === 'logs'    && <AuditLogsPanel />}
       {tab === 'history' && <PlayerHistoryTable players={players} weeks={weeks} />}
       {tab === 'trend'   && <TrendChart players={players} weeks={weeks} />}
       {tab === 'export'  && <ExportButtons players={players} weeks={weeks} />}

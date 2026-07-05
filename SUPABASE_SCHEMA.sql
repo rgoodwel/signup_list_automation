@@ -55,7 +55,26 @@ CREATE INDEX IF NOT EXISTS idx_weekly_players_signup_id ON weekly_players(signup
 CREATE INDEX IF NOT EXISTS idx_weekly_players_hole ON weekly_players(hole_number, hole_group);
 
 -- ────────────────────────────────────────────────────────────────────────
--- 3. Admin settings table (stores PIN and current week)
+-- 3. Audit log table (tracks CRUD operations on weekly_players)
+-- ────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS weekly_players_audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  week_number TEXT NOT NULL,
+  operation TEXT NOT NULL,  -- 'CREATE', 'UPDATE', 'DELETE'
+  player_name TEXT,
+  player_email TEXT,
+  hole_number TEXT,
+  hole_group TEXT,
+  details JSONB,  -- Additional context about the change
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_week ON weekly_players_audit_log(week_number);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON weekly_players_audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_operation ON weekly_players_audit_log(operation);
+
+-- ────────────────────────────────────────────────────────────────────────
+-- 4. Admin settings table (stores PIN and current week)
 -- ────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS admin_settings (
   key TEXT PRIMARY KEY,
