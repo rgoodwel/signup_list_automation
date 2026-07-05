@@ -178,7 +178,7 @@ export default function SignupForm({ players, onSignedUp }) {
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
   const [removal, setRemoval] = useState(null)
-  const [bulkMove, setBulkMove] = useState(null) // { sourceHole, playerCount }
+  const [bulkMove, setBulkMove] = useState(null) // { sourceHole, players, selectedPlayerIds }
 
   // Async state for current week
   const [weekKey, setWeekKey] = useState(null)
@@ -523,15 +523,33 @@ export default function SignupForm({ players, onSignedUp }) {
       showError('No Players', `Hole ${sourceHole} has no players to move.`)
       return
     }
-    setBulkMove({ sourceHole, playerCount: playersInHole.length })
+    // Default: all players selected
+    const selectedIds = new Set(playersInHole.map(p => p.id))
+    setBulkMove({ sourceHole, players: playersInHole, selectedPlayerIds: selectedIds })
+  }
+
+  function togglePlayerSelection(playerId) {
+    if (!bulkMove) return
+    const newSelected = new Set(bulkMove.selectedPlayerIds)
+    if (newSelected.has(playerId)) {
+      newSelected.delete(playerId)
+    } else {
+      newSelected.add(playerId)
+    }
+    setBulkMove({ ...bulkMove, selectedPlayerIds: newSelected })
   }
 
   async function handleBulkMoveToHole(destinationHole) {
     if (!bulkMove || !weekKey) return
-    const { sourceHole, playerCount } = bulkMove
+    const { sourceHole, players, selectedPlayerIds } = bulkMove
+
+    if (selectedPlayerIds.size === 0) {
+      showError('No Players Selected', 'Please select at least one player to move.')
+      return
+    }
 
     try {
-      const playersToMove = holes[sourceHole] || []
+      const playersToMove = players.filter(p => selectedPlayerIds.has(p.id))
       let successCount = 0
       let failureCount = 0
 
@@ -579,13 +597,31 @@ export default function SignupForm({ players, onSignedUp }) {
       {bulkMove && (
         <div className="modal-overlay" onClick={() => setBulkMove(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <p className="modal-title">🔀 Move All Players</p>
+            <p className="modal-title">🔀 Move Players</p>
             <div className="modal-body">
-              <p style={{ margin: 0 }}>
-                Move <strong>{bulkMove.playerCount} player{bulkMove.playerCount !== 1 ? 's' : ''}</strong> from <strong>Hole {bulkMove.sourceHole}</strong> to which hole?
+              <p style={{ margin: '0 0 12px' }}>
+                From <strong>Hole {bulkMove.sourceHole}</strong> to which hole?
+              </p>
+              <p style={{ margin: '0 0 8px', fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
+                Select players to move:
+              </p>
+              <div className="bulk-move-player-list">
+                {bulkMove.players.map(player => (
+                  <label key={player.id} className="bulk-move-player-item">
+                    <input
+                      type="checkbox"
+                      checked={bulkMove.selectedPlayerIds.has(player.id)}
+                      onChange={() => togglePlayerSelection(player.id)}
+                    />
+                    <span className="player-name">{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                  </label>
+                ))}
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
+                {bulkMove.selectedPlayerIds.size} of {bulkMove.players.length} selected
               </p>
             </div>
-            <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px' }}>
+            <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
               {/* Available destination holes */}
               {[...holeKeys, ...(bUnlocked ? bHoleKeys : [])]
                 .filter(h => h !== bulkMove.sourceHole)
