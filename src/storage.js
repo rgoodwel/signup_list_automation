@@ -201,7 +201,7 @@ export async function openWeek(weekKey) {
     // Close any previously open week for this league
     const { data: previousWeeks, error: prevError } = await supabase
       .from('weeks')
-      .select('week_key')
+      .select('id, week_key')
       .eq('league_id', currentLeagueId)
       .is('closed_at', null)
     
@@ -215,14 +215,13 @@ export async function openWeek(weekKey) {
       await supabase
         .from('weeks')
         .update({ closed_at: new Date().toISOString() })
-        .eq('league_id', currentLeagueId)
-        .eq('week_key', previousWeek.week_key)
+        .eq('id', previousWeek.id)
     }
 
     // Check if this week already exists for this league
     const { data: existingWeeks, error: existError } = await supabase
       .from('weeks')
-      .select('week_key')
+      .select('id, week_key')
       .eq('league_id', currentLeagueId)
       .eq('week_key', weekKey)
     
@@ -233,6 +232,7 @@ export async function openWeek(weekKey) {
 
     if (existingWeeks && existingWeeks.length > 0) {
       // Week exists - update it (reopen it)
+      const existingWeek = existingWeeks[0]
       await supabase
         .from('weeks')
         .update({
@@ -240,8 +240,7 @@ export async function openWeek(weekKey) {
           closed_at: null,
           b_groups_unlocked: false,
         })
-        .eq('league_id', currentLeagueId)
-        .eq('week_key', weekKey)
+        .eq('id', existingWeek.id)
     } else {
       // Week doesn't exist - create it
       await supabase
@@ -269,11 +268,24 @@ export async function closeCurrentWeek() {
     const weekKey = await getCurrentWeekKey()
     if (!weekKey) return
 
-    await supabase
+    // Fetch the week id first
+    const { data: weeks, error: fetchError } = await supabase
       .from('weeks')
-      .update({ closed_at: new Date().toISOString() })
+      .select('id')
       .eq('league_id', currentLeagueId)
       .eq('week_key', weekKey)
+
+    if (fetchError) {
+      console.error('Error fetching week to close:', fetchError)
+      throw fetchError
+    }
+
+    if (weeks && weeks.length > 0) {
+      await supabase
+        .from('weeks')
+        .update({ closed_at: new Date().toISOString() })
+        .eq('id', weeks[0].id)
+    }
   } catch (err) {
     console.error('Error closing week:', err)
     throw err
@@ -599,11 +611,21 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     if (!week.b_groups_unlocked) {
       const aGroupCount = await countAGroupPlayers(weekKey)
       if (aGroupCount >= B_GROUP_THRESHOLD) {
-        await supabase
+        // Fetch week id first
+        const { data: weeks, error: fetchError } = await supabase
           .from('weeks')
-          .update({ b_groups_unlocked: true })
+          .select('id')
           .eq('league_id', currentLeagueId)
           .eq('week_key', weekKey)
+        
+        if (fetchError) throw fetchError
+        
+        if (weeks && weeks.length > 0) {
+          await supabase
+            .from('weeks')
+            .update({ b_groups_unlocked: true })
+            .eq('id', weeks[0].id)
+        }
       }
     }
 
