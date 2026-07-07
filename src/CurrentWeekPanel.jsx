@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useLeague } from './contexts/LeagueContext'
 import {
   getCurrentWeekKey,
   getWeek,
@@ -10,6 +11,7 @@ import {
 import { supabase } from './utils/supabaseClient'
 
 export default function CurrentWeekPanel({ onRefresh }) {
+  const league = useLeague()
   const [weeklyPlayers, setWeeklyPlayers] = useState([])
   const [loadingSupabase, setLoadingSupabase] = useState(false)
   const [weekKey, setWeekKey] = useState(null)
@@ -27,10 +29,11 @@ export default function CurrentWeekPanel({ onRefresh }) {
           const w = await getWeek(key)
           setWeek(w)
           
-          // Fetch players for this week
+          // Fetch players for this week (filtered by league)
           const { data, error } = await supabase
             .from('weekly_players')
             .select('id, player_name, player_email, hole_number, hole_group, week_number, signed_up_at')
+            .eq('league_id', league?.id)
             .eq('week_number', key)
           
           if (error) {

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { initializeStorage, refreshFromBackend, getPlayers, getWeeks } from './storage'
+import { useLeague } from './contexts/LeagueContext'
+import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, setCurrentLeague } from './storage'
 import SignupForm from './SignupForm'
 import AdminView from './AdminView'
 
 export default function App() {
+  const league = useLeague()
   const [view, setView]       = useState('player') // 'player' | 'admin'
   const [players, setPlayers] = useState({})
   const [weeks, setWeeks]     = useState({})
@@ -16,6 +18,13 @@ export default function App() {
     setPlayers(p)
     setWeeks(w)
   }, [])
+
+  useEffect(() => {
+    // Set current league whenever league changes
+    if (league?.id) {
+      setCurrentLeague(league.id)
+    }
+  }, [league?.id])
 
   useEffect(() => {
     let active = true
@@ -43,7 +52,7 @@ export default function App() {
       <header>
         <div className="header-row">
           <div>
-            <h1>Monday Night Golf League</h1>
+            <h1>{league?.name || 'Golf League'}</h1>
             <p className="muted">Sign up for this week’s round below.</p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
