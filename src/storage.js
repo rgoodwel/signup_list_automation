@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // storage.js — Supabase-based storage for signup_list_automation
 // All operations now use Supabase as the single source of truth
+// Multi-tenancy: each league is completely isolated
 // ---------------------------------------------------------------------------
 
 import { supabase } from './utils/supabaseClient'
@@ -8,6 +9,17 @@ import { supabase } from './utils/supabaseClient'
 export const HOLE_COUNT = 9
 export const HOLE_CAPACITY = 4
 export const B_GROUP_THRESHOLD = 24
+
+// ── League context (set by App.jsx when league loads) ──────────────────────
+let currentLeagueId = null
+
+export function setCurrentLeague(leagueId) {
+  currentLeagueId = leagueId
+}
+
+export function getCurrentLeagueId() {
+  return currentLeagueId
+}
 
 // ── Helper functions ────────────────────────────────────────────────────────
 
@@ -124,14 +136,18 @@ export async function refreshFromBackend() {
 
 export async function getCurrentWeekKey() {
   try {
+    if (!currentLeagueId) return null
+    // Get the most recent week for this league
     const { data, error } = await supabase
-      .from('admin_settings')
-      .select('value')
-      .eq('key', 'current_week_key')
+      .from('weeks')
+      .select('week_key')
+      .eq('league_id', currentLeagueId)
+      .order('opened_at', { ascending: false })
+      .limit(1)
       .single()
     
     if (error && error.code !== 'PGRST116') throw error
-    return data?.value || null
+    return data?.week_key || null
   } catch (err) {
     console.error('Error getting current week key:', err)
     return null
@@ -140,9 +156,11 @@ export async function getCurrentWeekKey() {
 
 export async function getWeeks() {
   try {
+    if (!currentLeagueId) return {}
     const { data, error } = await supabase
       .from('weeks')
       .select('*')
+      .eq('league_id', currentLeagueId)
       .order('opened_at', { ascending: false })
     
     if (error) throw error
@@ -160,9 +178,11 @@ export async function getWeeks() {
 
 export async function getWeek(weekKey) {
   try {
+    if (!currentLeagueId) return null
     const { data, error } = await supabase
       .from('weeks')
       .select('*')
+      .eq('league_id', currentLeagueId)
       .eq('week_key', weekKey)
       .single()
     
@@ -176,31 +196,35 @@ export async function getWeek(weekKey) {
 
 export async function openWeek(weekKey) {
   try {
-    const { data: currentWeekData } = await supabase
-      .from('admin_settings')
-      .select('value')
-      .eq('key', 'current_week_key')
+    if (!currentLeagueId) return weekKey
+    
+    // Close any previously open week for this league
+    const { data: previousWeek } = await supabase
+      .from('weeks')
+      .select('week_key')
+      .eq('league_id', currentLeagueId)
+      .is('closed_at', null)
+      .limit(1)
       .single()
     
-    if (currentWeekData?.value) {
+    if (previousWeek?.week_key) {
       await supabase
         .from('weeks')
         .update({ closed_at: new Date().toISOString() })
-        .eq('week_key', currentWeekData.value)
+        .eq('league_id', currentLeagueId)
+        .eq('week_key', previousWeek.week_key)
     }
 
+    // Upsert the new week with league_id
     await supabase
       .from('weeks')
       .upsert({
+        league_id: currentLeagueId,
         week_key: weekKey,
         opened_at: new Date().toISOString(),
         closed_at: null,
         b_groups_unlocked: false,
-      }, { onConflict: 'week_key' })
-    
-    await supabase
-      .from('admin_settings')
-      .upsert({ key: 'current_week_key', value: weekKey }, { onConflict: 'key' })
+      }, { onConflict: ['league_id', 'week_key'] })
 
     return weekKey
   } catch (err) {
@@ -211,17 +235,16 @@ export async function openWeek(weekKey) {
 
 export async function closeCurrentWeek() {
   try {
+    if (!currentLeagueId) return
+    
     const weekKey = await getCurrentWeekKey()
     if (!weekKey) return
 
     await supabase
       .from('weeks')
       .update({ closed_at: new Date().toISOString() })
+      .eq('league_id', currentLeagueId)
       .eq('week_key', weekKey)
-
-    await supabase
-      .from('admin_settings')
-      .upsert({ key: 'current_week_key', value: '' }, { onConflict: 'key' })
   } catch (err) {
     console.error('Error closing week:', err)
     throw err
@@ -233,9 +256,11 @@ export async function closeCurrentWeek() {
 // ────────────────────────────────────────────────────────────────────────
 async function logAuditEvent(weekKey, operation, playerName, playerEmail, holeNumber, holeGroup, details = {}) {
   try {
+    if (!currentLeagueId) return
     await supabase
       .from('weekly_players_audit_log')
       .insert({
+        league_id: currentLeagueId,
         week_number: weekKey,
         operation,
         player_name: playerName,
@@ -252,9 +277,11 @@ async function logAuditEvent(weekKey, operation, playerName, playerEmail, holeNu
 
 export async function getPlayers() {
   try {
+    if (!currentLeagueId) return {}
     const { data, error } = await supabase
       .from('weekly_players')
       .select('player_email, player_name')
+      .eq('league_id', currentLeagueId)
       .not('player_email', 'is', null)
       .eq('is_guest', false)
     
@@ -281,10 +308,12 @@ export async function getPlayers() {
 
 async function countAGroupPlayers(weekKey) {
   try {
+    if (!currentLeagueId) return 0
     // Count ALL players (primary + guests) in A-group, not just primaries
     const { data, error } = await supabase
       .from('weekly_players')
       .select('id', { count: 'exact' })
+      .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
       .eq('hole_group', 'A')
     
@@ -298,9 +327,11 @@ async function countAGroupPlayers(weekKey) {
 
 async function getHolePlayers(weekKey, holeNumber, holeGroup) {
   try {
+    if (!currentLeagueId) return []
     let query = supabase
       .from('weekly_players')
       .select('*')
+      .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
       .eq('hole_number', holeNumber)
     
@@ -318,6 +349,10 @@ async function getHolePlayers(weekKey, holeNumber, holeGroup) {
 }
 
 export async function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
+  if (!currentLeagueId) {
+    return { ok: false, reason: 'No league selected. Please refresh and try again.' }
+  }
+  
   const weekKey = await getCurrentWeekKey()
   if (!weekKey) {
     return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
@@ -333,6 +368,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     const { data: existing } = await supabase
       .from('weekly_players')
       .select('id')
+      .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
       .eq('player_email', emailKey)
       .eq('is_guest', false)
@@ -349,6 +385,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         const { error: createError } = await supabase
           .from('weeks')
           .insert({
+            league_id: currentLeagueId,
             week_key: weekKey,
             opened_at: new Date().toISOString(),
             closed_at: null,
@@ -380,11 +417,12 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       }
     }
     
-    // Check for duplicate guest names in the same week
+    // Check for duplicate guest names in the same week (league-specific)
     for (const guestName of extras) {
       const { data: existing } = await supabase
         .from('weekly_players')
         .select('id')
+        .eq('league_id', currentLeagueId)
         .eq('week_number', weekKey)
         .ilike('player_name', guestName.trim())
         .single()
@@ -474,6 +512,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     const { error: insertError } = await supabase
       .from('weekly_players')
       .insert({
+        league_id: currentLeagueId,
         week_number: weekKey,
         player_name: name.trim(),
         player_email: emailKey,
@@ -504,6 +543,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
       const { error: guestError } = await supabase
         .from('weekly_players')
         .insert({
+          league_id: currentLeagueId,
           week_number: weekKey,
           player_name: guestName.trim(),
           player_email: null,
@@ -533,6 +573,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         await supabase
           .from('weeks')
           .update({ b_groups_unlocked: true })
+          .eq('league_id', currentLeagueId)
           .eq('week_key', weekKey)
       }
     }
@@ -546,16 +587,20 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
 
 export async function removePlayerFromHole({ weekKey, hole, playerId }) {
   try {
+    if (!currentLeagueId) return { ok: false, reason: 'No league selected.' }
+    
     // Fetch player data before deleting for logging
     const { data: player } = await supabase
       .from('weekly_players')
       .select('player_name, player_email, hole_number, hole_group')
+      .eq('league_id', currentLeagueId)
       .eq('id', playerId)
       .single()
     
     const { error } = await supabase
       .from('weekly_players')
       .delete()
+      .eq('league_id', currentLeagueId)
       .eq('id', playerId)
     
     if (error) throw error
@@ -576,6 +621,8 @@ export async function removePlayerFromHole({ weekKey, hole, playerId }) {
 
 export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, playerId }) {
   try {
+    if (!currentLeagueId) return { ok: false, reason: 'No league selected.' }
+    
     const toKey = normalizeHole(toHole)
     if (!toKey) return { ok: false, reason: 'Invalid hole.' }
 
@@ -591,6 +638,7 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
     const { data: player } = await supabase
       .from('weekly_players')
       .select('player_name, player_email, hole_number, hole_group')
+      .eq('league_id', currentLeagueId)
       .eq('id', playerId)
       .single()
 
@@ -600,6 +648,7 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
         hole_number: toNumber,
         hole_group: toGroup,
       })
+      .eq('league_id', currentLeagueId)
       .eq('id', playerId)
     
     if (error) throw error
@@ -622,9 +671,11 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
 
 export async function getAuditLogs(weekKey, limit = 100) {
   try {
+    if (!currentLeagueId) return []
     const { data, error } = await supabase
       .from('weekly_players_audit_log')
       .select('*')
+      .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
       .order('created_at', { ascending: false })
       .limit(limit)
