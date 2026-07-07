@@ -199,33 +199,40 @@ export async function openWeek(weekKey) {
     if (!currentLeagueId) return weekKey
     
     // Close any previously open week for this league
-    const { data: previousWeek } = await supabase
+    const { data: previousWeeks, error: prevError } = await supabase
       .from('weeks')
       .select('week_key, id')
       .eq('league_id', currentLeagueId)
       .is('closed_at', null)
-      .limit(1)
-      .single()
     
-    if (previousWeek?.week_key) {
+    if (prevError) {
+      console.error('Error fetching previous week:', prevError)
+      throw prevError
+    }
+
+    if (previousWeeks && previousWeeks.length > 0) {
+      const previousWeek = previousWeeks[0]
       await supabase
         .from('weeks')
         .update({ closed_at: new Date().toISOString() })
-        .eq('league_id', currentLeagueId)
-        .eq('week_key', previousWeek.week_key)
+        .eq('id', previousWeek.id)
     }
 
     // Check if this week already exists for this league
-    const { data: existingWeek } = await supabase
+    const { data: existingWeeks, error: existError } = await supabase
       .from('weeks')
       .select('id, week_key')
       .eq('league_id', currentLeagueId)
       .eq('week_key', weekKey)
-      .limit(1)
-      .single()
+    
+    if (existError) {
+      console.error('Error checking existing week:', existError)
+      throw existError
+    }
 
-    if (existingWeek) {
+    if (existingWeeks && existingWeeks.length > 0) {
       // Week exists - update it (reopen it)
+      const existingWeek = existingWeeks[0]
       await supabase
         .from('weeks')
         .update({
