@@ -201,7 +201,7 @@ export async function openWeek(weekKey) {
     // Close any previously open week for this league
     const { data: previousWeek } = await supabase
       .from('weeks')
-      .select('week_key')
+      .select('week_key, id')
       .eq('league_id', currentLeagueId)
       .is('closed_at', null)
       .limit(1)
@@ -215,17 +215,37 @@ export async function openWeek(weekKey) {
         .eq('week_key', previousWeek.week_key)
     }
 
-    // Upsert the new week with league_id
-    // Requires composite unique constraint: CREATE UNIQUE INDEX uq_weeks_league_week_key ON weeks(league_id, week_key);
-    await supabase
+    // Check if this week already exists for this league
+    const { data: existingWeek } = await supabase
       .from('weeks')
-      .upsert({
-        league_id: currentLeagueId,
-        week_key: weekKey,
-        opened_at: new Date().toISOString(),
-        closed_at: null,
-        b_groups_unlocked: false,
-      }, { onConflict: ['league_id', 'week_key'] })
+      .select('id, week_key')
+      .eq('league_id', currentLeagueId)
+      .eq('week_key', weekKey)
+      .limit(1)
+      .single()
+
+    if (existingWeek) {
+      // Week exists - update it (reopen it)
+      await supabase
+        .from('weeks')
+        .update({
+          opened_at: new Date().toISOString(),
+          closed_at: null,
+          b_groups_unlocked: false,
+        })
+        .eq('id', existingWeek.id)
+    } else {
+      // Week doesn't exist - create it
+      await supabase
+        .from('weeks')
+        .insert({
+          league_id: currentLeagueId,
+          week_key: weekKey,
+          opened_at: new Date().toISOString(),
+          closed_at: null,
+          b_groups_unlocked: false,
+        })
+    }
 
     return weekKey
   } catch (err) {
