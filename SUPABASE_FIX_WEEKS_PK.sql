@@ -30,6 +30,10 @@ CREATE INDEX IF NOT EXISTS idx_weeks_league_week_key ON weeks(league_id, week_ke
 CREATE INDEX IF NOT EXISTS idx_weeks_opened_at ON weeks(opened_at DESC);
 
 -- Step 4: Recreate the foreign key from weekly_players to weeks
+-- Use composite key (league_id, week_number) to match the unique constraint
 ALTER TABLE weekly_players
-  ADD CONSTRAINT fk_week_number FOREIGN KEY (week_number) 
-    REFERENCES weeks(week_key) ON DELETE CASCADE;
+  DROP CONSTRAINT IF EXISTS fk_week_number;
+
+ALTER TABLE weekly_players
+  ADD CONSTRAINT fk_week_number FOREIGN KEY (league_id, week_number) 
+    REFERENCES weeks(league_id, week_key) ON DELETE CASCADE;
