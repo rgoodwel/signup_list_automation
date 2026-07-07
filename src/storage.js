@@ -216,6 +216,7 @@ export async function openWeek(weekKey) {
     }
 
     // Upsert the new week with league_id
+    // Requires composite unique constraint: CREATE UNIQUE INDEX uq_weeks_league_week_key ON weeks(league_id, week_key);
     await supabase
       .from('weeks')
       .upsert({

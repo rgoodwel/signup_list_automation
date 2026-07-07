@@ -37,6 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_league_admins_league_id ON league_admins(league_i
 -- ────────────────────────────────────────────────────────────────────────
 ALTER TABLE weeks ADD COLUMN IF NOT EXISTS league_id BIGINT REFERENCES leagues(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_weeks_league_id ON weeks(league_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_weeks_league_week_key ON weeks(league_id, week_key);
 
 -- ────────────────────────────────────────────────────────────────────────
 -- 4. Add league_id to weekly_players table
