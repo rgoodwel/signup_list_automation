@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useLeague } from './contexts/LeagueContext'
 import {
   addSignupToWeek,
   getCurrentWeekKey,
@@ -170,6 +171,7 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
 }
 
 export default function SignupForm({ players, onSignedUp }) {
+  const league = useLeague()
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
   const [hole, setHole] = useState('AUTO')
@@ -205,6 +207,7 @@ export default function SignupForm({ players, onSignedUp }) {
           const { data: weeklyPlayers, error } = await supabase
             .from('weekly_players')
             .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+            .eq('league_id', league?.id)
             .eq('week_number', key)
           
           if (!error && weeklyPlayers) {
@@ -241,7 +244,7 @@ export default function SignupForm({ players, onSignedUp }) {
 
   // Real-time subscription to weekly_players changes
   useEffect(() => {
-    if (!weekKey) return
+    if (!weekKey || !league?.id) return
     
     const channel = supabase
       .channel(`weekly_players:${weekKey}`)
@@ -251,7 +254,7 @@ export default function SignupForm({ players, onSignedUp }) {
           event: '*',
           schema: 'public',
           table: 'weekly_players',
-          filter: `week_number=eq.${weekKey}`,
+          filter: `and(week_number=eq.${weekKey},league_id=eq.${league.id})`,
         },
         async (payload) => {
           // Reload holes on any change (INSERT, UPDATE, DELETE)
@@ -263,7 +266,7 @@ export default function SignupForm({ players, onSignedUp }) {
     return () => {
       channel.unsubscribe()
     }
-  }, [weekKey])
+  }, [weekKey, league?.id])
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
@@ -312,10 +315,11 @@ export default function SignupForm({ players, onSignedUp }) {
 
   async function reloadHoles() {
     try {
-      if (!weekKey) return
+      if (!weekKey || !league?.id) return
       const { data: weeklyPlayers, error } = await supabase
         .from('weekly_players')
         .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+        .eq('league_id', league.id)
         .eq('week_number', weekKey)
       
       if (!error && weeklyPlayers) {
