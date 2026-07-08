@@ -118,19 +118,14 @@ export default function CurrentWeekPanel({ onRefresh }) {
         <h2>Current Week</h2>
         <div className="panel-actions" style={{display: 'flex', gap: '8px'}}>
           {isOpen ? (
-            <>
-              <button className="btn btn-danger" onClick={handleLockToggle}>Lock Signups</button>
-              <button className="btn btn-secondary" onClick={handleCloseWeek}>Close Week</button>
-              <button className="btn btn-warning" onClick={handleOpenNextWeek}>Open Next Week</button>
-            </>
+            <button className="btn btn-danger" onClick={handleLockToggle}>Lock Signups</button>
           ) : (
-            <>
-              <button className="btn btn-primary" onClick={handleLockToggle}>
-                Unlock Signups
-              </button>
-              <button className="btn btn-warning" onClick={handleOpenNextWeek}>Open Next Week</button>
-            </>
+            <button className="btn btn-primary" onClick={handleLockToggle}>
+              Unlock Signups
+            </button>
           )}
+          <button className="btn btn-secondary" onClick={handleCloseWeek}>Close Week</button>
+          <button className="btn btn-warning" onClick={handleOpenNextWeek}>Open Next Week</button>
         </div>
       </div>
 
