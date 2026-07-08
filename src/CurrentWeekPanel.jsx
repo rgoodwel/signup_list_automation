@@ -5,7 +5,6 @@ import {
   getWeek,
   openWeek,
   lockCurrentWeek,
-  closeCurrentWeekAndOpenNext,
   getNextWeekKey,
   weekKeyFromDate,
   weekKeyToLabel,
@@ -80,12 +79,27 @@ export default function CurrentWeekPanel({ onRefresh }) {
     }
   }
 
-  async function handleCloseAndNext() {
-    const nextWeek = getNextWeekKey(weekKey)
-    if (!confirm(`Close ${weekKeyToLabel(weekKey)} and move to ${weekKeyToLabel(nextWeek)}?`)) return
+  async function handleCloseWeek() {
+    if (!confirm(`Close ${weekKeyToLabel(weekKey)}?`)) return
     try {
-      await closeCurrentWeekAndOpenNext()
+      await lockCurrentWeek()
       // Immediately refresh the week state
+      if (weekKey) {
+        const updated = await getWeek(weekKey)
+        setWeek(updated)
+      }
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      console.error('Error closing week:', err)
+    }
+  }
+
+  async function handleOpenNextWeek() {
+    const nextWeek = getNextWeekKey(weekKey)
+    if (!confirm(`Open ${weekKeyToLabel(nextWeek)}?`)) return
+    try {
+      await openWeek(nextWeek)
+      // Immediately refresh to the new week state
       const newWeekKey = await getCurrentWeekKey()
       if (newWeekKey) {
         const updated = await getWeek(newWeekKey)
@@ -94,7 +108,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
       }
       if (onRefresh) await onRefresh()
     } catch (err) {
-      console.error('Error closing week and opening next:', err)
+      console.error('Error opening next week:', err)
     }
   }
 
@@ -102,16 +116,20 @@ export default function CurrentWeekPanel({ onRefresh }) {
     <div className="panel">
       <div className="panel-header">
         <h2>Current Week</h2>
-        <div className="panel-actions">
+        <div className="panel-actions" style={{display: 'flex', gap: '8px'}}>
           {isOpen ? (
             <>
               <button className="btn btn-danger" onClick={handleLockToggle}>Lock Signups</button>
-              <button className="btn btn-warning" onClick={handleCloseAndNext} style={{marginLeft: '8px'}}>Close & Next Week</button>
+              <button className="btn btn-secondary" onClick={handleCloseWeek}>Close Week</button>
+              <button className="btn btn-warning" onClick={handleOpenNextWeek}>Open Next Week</button>
             </>
           ) : (
-            <button className="btn btn-primary" onClick={handleLockToggle}>
-              Unlock Signups
-            </button>
+            <>
+              <button className="btn btn-primary" onClick={handleLockToggle}>
+                Unlock Signups
+              </button>
+              <button className="btn btn-warning" onClick={handleOpenNextWeek}>Open Next Week</button>
+            </>
           )}
         </div>
       </div>
