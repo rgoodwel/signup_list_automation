@@ -55,18 +55,34 @@ export default function CurrentWeekPanel({ onRefresh }) {
     loadWeekData()
   }, [onRefresh])
 
-  const isOpen  = weekKey && week && !week.closedAt
+  const isOpen  = weekKey && week && !week.closed_at
 
   async function handleOpen() {
-    const key = weekKeyFromDate()
-    await openWeek(key)
-    if (onRefresh) await onRefresh()
+    try {
+      const key = weekKeyFromDate()
+      await openWeek(key)
+      // Immediately refresh the week state
+      const updated = await getWeek(key)
+      setWeek(updated)
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      console.error('Error opening week:', err)
+    }
   }
 
   async function handleClose() {
     if (!confirm('Close signups for the current week?')) return
-    await closeCurrentWeek()
-    if (onRefresh) await onRefresh()
+    try {
+      await closeCurrentWeek()
+      // Immediately refresh the week state
+      if (weekKey) {
+        const updated = await getWeek(weekKey)
+        setWeek(updated)
+      }
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      console.error('Error closing week:', err)
+    }
   }
 
   return (
