@@ -121,7 +121,8 @@ export function compareWeekKeys(a, b) {
 
 export async function initializeStorage() {
   try {
-    const { error } = await supabase.from('admin_settings').select('key').limit(1)
+    // Test connection by querying leagues table
+    const { error } = await supabase.from('leagues').select('id').limit(1)
     if (error) throw error
     console.log('✓ Supabase storage initialized')
   } catch (err) {
@@ -741,14 +742,16 @@ export async function getAuditLogs(weekKey, limit = 100) {
 
 export async function getAdminPin() {
   try {
+    if (!currentLeagueId) return null
+    
     const { data, error } = await supabase
-      .from('admin_settings')
-      .select('value')
-      .eq('key', 'admin_pin')
-      .single()
+      .from('league_admins')
+      .select('admin_pin')
+      .eq('league_id', currentLeagueId)
+      .limit(1)
     
     if (error && error.code !== 'PGRST116') throw error
-    return data?.value || null
+    return data && data.length > 0 ? data[0].admin_pin : null
   } catch (err) {
     console.error('Error getting admin PIN:', err)
     return null
@@ -757,9 +760,20 @@ export async function getAdminPin() {
 
 export async function setAdminPin(pin) {
   try {
+    if (!currentLeagueId) throw new Error('No league context set')
+    
+    // Upsert: create or update the first admin entry for this league
+    // Using a fixed email identifier for the league's primary admin
     const { error } = await supabase
-      .from('admin_settings')
-      .upsert({ key: 'admin_pin', value: pin }, { onConflict: 'key' })
+      .from('league_admins')
+      .upsert(
+        {
+          league_id: currentLeagueId,
+          admin_email: 'admin',  // Fixed identifier for league's primary admin
+          admin_pin: pin,
+        },
+        { onConflict: ['league_id', 'admin_email'] }
+      )
     
     if (error) throw error
   } catch (err) {
