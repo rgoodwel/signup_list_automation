@@ -670,18 +670,21 @@ export default function SignupForm({ players, onSignedUp }) {
         <div className="closed-notice">
           <p className="week-closed-notice">⏳ Loading signup information...</p>
         </div>
-      ) : isClosed ? (
-        <div className="closed-notice">
-          <p className="week-closed-notice">🔒 Signups are currently closed.</p>
-          <p className="reopen-notice">An administrator must unlock signups before players can register.</p>
-        </div>
       ) : (
         <>
-          <p className="week-open-notice">
-            Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
-            {roundDateLabel ? <> ({roundDateLabel})</> : null}
-          </p>
-          <form onSubmit={handleSubmit} className="signup-form">
+          {isClosed ? (
+            <div className="closed-notice">
+              <p className="week-closed-notice">🔒 Signups are currently closed.</p>
+              <p className="reopen-notice">New players cannot register, but you can still move or remove existing players below.</p>
+            </div>
+          ) : (
+            <p className="week-open-notice">
+              Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
+              {roundDateLabel ? <> ({roundDateLabel})</> : null}
+            </p>
+          )}
+          {!isClosed && (
+            <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
               <PlayerAutocomplete
                 placeholder="First Last (e.g., Jane Smith)"
@@ -770,6 +773,7 @@ export default function SignupForm({ players, onSignedUp }) {
               <span className="signup-player-count">{totalAllPlayers} player{totalAllPlayers !== 1 ? 's' : ''} signed up</span>
             </div>
           </form>
+          )}
           {msg && <p className={`form-msg form-msg--${msg.type}`}>{msg.text}</p>}
           <div className="holes-grid">
             {holeKeys.map(holeKey => (
