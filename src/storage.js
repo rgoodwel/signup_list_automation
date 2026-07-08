@@ -121,7 +121,8 @@ export function compareWeekKeys(a, b) {
 
 export async function initializeStorage() {
   try {
-    const { error } = await supabase.from('admin_settings').select('key').limit(1)
+    // Test connection by querying leagues table
+    const { error } = await supabase.from('leagues').select('id').limit(1)
     if (error) throw error
     console.log('✓ Supabase storage initialized')
   } catch (err) {
