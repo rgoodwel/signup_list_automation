@@ -274,7 +274,7 @@ export default function SignupForm({ players, onSignedUp }) {
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   // Derived state from week data
-  const isClosed   = !weekKey || (week && week.closedAt)
+  const isClosed   = !weekKey || (week && week.closed_at)
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
   const bUnlocked = week?.b_groups_unlocked || false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
