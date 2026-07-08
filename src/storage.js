@@ -117,6 +117,34 @@ export function compareWeekKeys(a, b) {
   return ay !== by ? ay - by : aw - bw
 }
 
+export function getNextWeekKey(weekKey) {
+  const [year, w] = weekKey.split('-W')
+  const weekNum = parseInt(w, 10)
+  const nextWeekNum = weekNum + 1
+  
+  // For 2026, weeks go from W28 to W52
+  if (nextWeekNum > 52) {
+    return `${parseInt(year) + 1}-W01`
+  }
+  
+  return `${year}-W${String(nextWeekNum).padStart(2, '0')}`
+}
+
+export function isValidWeekKey(weekKey, year = 2026) {
+  const match = weekKey.match(/^(\d{4})-W(\d{2})$/)
+  if (!match) return false
+  
+  const [, yearStr, weekStr] = match
+  const w = parseInt(weekStr, 10)
+  const y = parseInt(yearStr, 10)
+  
+  // For the specified year, allow weeks W28 through W52
+  if (y === year) return w >= 28 && w <= 52
+  
+  // For other years, allow weeks W01 through W52
+  return w >= 1 && w <= 53
+}
+
 // ── Supabase operations ─────────────────────────────────────────────────────
 
 export async function initializeStorage() {
@@ -262,7 +290,7 @@ export async function openWeek(weekKey) {
   }
 }
 
-export async function closeCurrentWeek() {
+export async function lockCurrentWeek() {
   try {
     if (!currentLeagueId) return
     
@@ -277,7 +305,7 @@ export async function closeCurrentWeek() {
       .eq('week_key', weekKey)
 
     if (fetchError) {
-      console.error('Error fetching week to close:', fetchError)
+      console.error('Error fetching week to lock:', fetchError)
       throw fetchError
     }
 
@@ -288,9 +316,35 @@ export async function closeCurrentWeek() {
         .eq('id', weeks[0].id)
     }
   } catch (err) {
-    console.error('Error closing week:', err)
+    console.error('Error locking week:', err)
     throw err
   }
+}
+
+export async function closeCurrentWeekAndOpenNext() {
+  try {
+    if (!currentLeagueId) return
+    
+    const currentWeekKey = await getCurrentWeekKey()
+    if (!currentWeekKey) throw new Error('No current week found')
+    
+    const nextWeekKey = getNextWeekKey(currentWeekKey)
+    
+    if (!isValidWeekKey(nextWeekKey)) {
+      throw new Error(`Cannot move to ${nextWeekKey} - outside allowed range (W28-W52 for 2026)`)
+    }
+    
+    // Ensure the next week exists, then open it
+    await openWeek(nextWeekKey)
+  } catch (err) {
+    console.error('Error closing week and opening next:', err)
+    throw err
+  }
+}
+
+// Deprecated - use lockCurrentWeek instead
+export async function closeCurrentWeek() {
+  return lockCurrentWeek()
 }
 
 // ────────────────────────────────────────────────────────────────────────
