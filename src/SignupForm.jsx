@@ -211,7 +211,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
           if (!league?.id) return
           const { data: weeklyPlayers, error } = await supabase
             .from('weekly_players')
-            .select('id, player_name, player_email, hole_number, hole_group, is_guest')
+            .select('id, player_name, player_email, hole_number, hole_group')
             .eq('league_id', league.id)
             .eq('week_number', propWeekKey)
           
@@ -227,7 +227,6 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   id: row.id,
                   name: row.player_name,
                   email: row.player_email,
-                  isPrimary: !row.is_guest,
                 })
               }
             }
