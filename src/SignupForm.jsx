@@ -197,8 +197,12 @@ export default function SignupForm({ players, onSignedUp }) {
   const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
   const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
 
-  // Fetch current week and populate holes display on mount/refresh
+  // Fetch current week and populate holes display
+  // Only run after league context is available (league?.id)
   useEffect(() => {
+    // Wait for league to be loaded before fetching data
+    if (!league?.id) return
+    
     async function loadWeek() {
       try {
         setLoading(true)
@@ -212,7 +216,7 @@ export default function SignupForm({ players, onSignedUp }) {
           const { data: weeklyPlayers, error } = await supabase
             .from('weekly_players')
             .select('id, player_name, player_email, hole_number, hole_group, is_guest')
-            .eq('league_id', league?.id)
+            .eq('league_id', league.id)
             .eq('week_number', key)
           
           if (!error && weeklyPlayers) {
@@ -245,7 +249,7 @@ export default function SignupForm({ players, onSignedUp }) {
       }
     }
     loadWeek()
-  }, [])
+  }, [league?.id, holeKeys, bHoleKeys])
 
   // Real-time subscription to weekly_players changes
   useEffect(() => {
