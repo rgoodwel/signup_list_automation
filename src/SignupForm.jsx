@@ -776,7 +776,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                 placeholder="First Last (e.g., Jane Smith)"
                 value={name}
                 onChange={v => { setName(v); setIsPlayerRecognized(false); setEmail(''); setPhone(''); setMsg(null) }}
-                onSelect={s => { setName(s.name); setEmail(s.email); setPhone(s.phone || ''); setIsPlayerRecognized(true); setMsg(null) }}
+                onSelect={s => { setName(s.name); setEmail(s.email); setPhone(formatPhoneNumber(s.phone || '')); setIsPlayerRecognized(true); setMsg(null) }}
                 suggestions={playerSuggestions}
                 required
               />
@@ -871,7 +871,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                     onSelect={s => { 
                       updateAdditionalPlayer(i, 'name', s.name)
                       updateAdditionalPlayer(i, 'email', s.email)
-                      updateAdditionalPlayer(i, 'phone', s.phone || '')
+                      updateAdditionalPlayer(i, 'phone', formatPhoneNumber(s.phone || ''))
                     }}
                     suggestions={playerSuggestions}
                     inputClass="ac-additional"
