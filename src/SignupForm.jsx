@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useLeague } from './contexts/LeagueContext'
 import {
   addSignupToWeek,
-  getCurrentWeekKey,
-  getWeek,
   removePlayerFromHole,
   movePlayerBetweenHoles,
   weekKeyToLabel,
@@ -170,7 +168,7 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
   )
 }
 
-export default function SignupForm({ players, onSignedUp }) {
+export default function SignupForm({ players, weekKey: propWeekKey, week: propWeek, onSignedUp }) {
   const league = useLeague()
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
@@ -198,26 +196,23 @@ export default function SignupForm({ players, onSignedUp }) {
   const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
 
   // Fetch current week and populate holes display
-  // Only run after league context is available (league?.id)
+  // Initialize from props passed by App
   useEffect(() => {
-    // Wait for league to be loaded before fetching data
-    if (!league?.id) return
+    setLoading(false)
+    setWeekKey(propWeekKey)
+    setWeek(propWeek)
     
-    async function loadWeek() {
-      try {
-        setLoading(true)
-        const key = await getCurrentWeekKey()
-        setWeekKey(key)
-        if (key) {
-          const w = await getWeek(key)
-          setWeek(w)
-          
-          // Fetch players and populate holes display
+    // Initialize holes display from the current week's players
+    // Note: This data comes from App's weekly_players fetch and real-time subscriptions
+    if (propWeekKey) {
+      async function loadHoles() {
+        try {
+          if (!league?.id) return
           const { data: weeklyPlayers, error } = await supabase
             .from('weekly_players')
             .select('id, player_name, player_email, hole_number, hole_group, is_guest')
             .eq('league_id', league.id)
-            .eq('week_number', key)
+            .eq('week_number', propWeekKey)
           
           if (!error && weeklyPlayers) {
             const holesMap = Object.fromEntries(
@@ -237,19 +232,13 @@ export default function SignupForm({ players, onSignedUp }) {
             }
             setHoles(holesMap)
           }
-        } else {
-          setWeek(null)
+        } catch (err) {
+          console.error('Error loading holes:', err)
         }
-      } catch (err) {
-        console.error('Error loading week:', err)
-        setWeekKey(null)
-        setWeek(null)
-      } finally {
-        setLoading(false)
       }
+      loadHoles()
     }
-    loadWeek()
-  }, [league?.id, holeKeys, bHoleKeys])
+  }, [propWeekKey, propWeek, league?.id, holeKeys, bHoleKeys])
 
   // Real-time subscription to weekly_players changes
   useEffect(() => {
