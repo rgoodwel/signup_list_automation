@@ -461,7 +461,7 @@ export async function getPlayers() {
     if (!currentLeagueId) return {}
     const { data, error } = await supabase
       .from('weekly_players')
-      .select('player_email, player_name')
+      .select('player_email, player_name, player_phone')
       .eq('league_id', currentLeagueId)
       .not('player_email', 'is', null)
     
@@ -474,7 +474,8 @@ export async function getPlayers() {
       if (email && !seen.has(email)) {
         players[email] = { 
           email,
-          name: row.player_name || email
+          name: row.player_name || email,
+          phone: row.player_phone || ''
         }
         seen.add(email)
       }

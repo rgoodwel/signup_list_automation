@@ -772,31 +772,34 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                 placeholder="First Last (e.g., Jane Smith)"
                 value={name}
                 onChange={v => { setName(v); setIsPlayerRecognized(false); setMsg(null) }}
-                onSelect={s => { setName(s.name); setEmail(s.email); setIsPlayerRecognized(true); setMsg(null) }}
+                onSelect={s => { setName(s.name); setEmail(s.email); setPhone(s.phone || ''); setIsPlayerRecognized(true); setMsg(null) }}
                 suggestions={playerSuggestions}
                 required
               />
-              <div className="form-row">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); setMsg(null) }}
-                  disabled={isPlayerRecognized}
-                  title={isPlayerRecognized ? "Player recognized - email is read-only" : ""}
-                  required
-                />
-                <input
-                  type="tel"
-                  placeholder="Phone (10 digits)"
-                  value={phone}
-                  onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
-                  maxLength="14"
-                  disabled={isPlayerRecognized}
-                  title={isPlayerRecognized ? "Player recognized - phone is read-only" : ""}
-                  required
-                />
-              </div>
+              {!isPlayerRecognized && (
+                <div className="form-row">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); setMsg(null) }}
+                    required
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone (10 digits)"
+                    value={phone}
+                    onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
+                    maxLength="14"
+                    required
+                  />
+                </div>
+              )}
+              {isPlayerRecognized && (
+                <div className="form-row" style={{ color: '#666', fontSize: '0.9em', padding: '8px 0' }}>
+                  Player recognized ✓
+                </div>
+              )}
               <select
                 value={hole}
                 onChange={e => { setHole(e.target.value); setMsg(null) }}
