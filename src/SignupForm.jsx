@@ -553,7 +553,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       } else if (reason.includes("is already signed up on Hole")) {
         title = 'Duplicate Additional Player'
         hint = 'Remove that person from your additional players list — they are already signed up on another hole and need to be managed there.'
-      } else if (reason.includes("automatic assignment")) {
+      } else if (reason.includes("automatic smart hole assignment")) {
         title = 'Auto Assignment Unavailable'
         hint = 'Choose a specific hole from the list and try again.'
       } else if (reason.includes("first and last name")) {
@@ -862,7 +862,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                 required
               >
                 <option value="AUTO">
-                  Automatic Assignment
+                  Automatic Smart Hole Assignment
                 </option>
                 {/* Group A holes with available spots */}
                 {holeKeys.some(k => canFitGroup(k)) && (
