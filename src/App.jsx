@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useLeague } from './contexts/LeagueContext'
-import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, getCurrentWeekKey, getWeek, setCurrentLeague } from './storage'
+import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, getCurrentWeekKey, getWeek, setCurrentLeague, ensureCurrentWeekExists } from './storage'
 import SignupForm from './SignupForm'
 import AdminView from './AdminView'
 
@@ -43,6 +43,9 @@ export default function App() {
     let active = true
     ;(async () => {
       await initializeStorage()
+      if (!active) return
+      // Ensure current week exists so players can be displayed
+      await ensureCurrentWeekExists()
       if (!active) return
       await refresh()
       if (active) setReady(true)

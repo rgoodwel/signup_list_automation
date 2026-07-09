@@ -228,6 +228,37 @@ export async function getWeek(weekKey) {
   }
 }
 
+export async function ensureCurrentWeekExists() {
+  try {
+    if (!currentLeagueId) return null
+    
+    // Get or create current week
+    const weekKey = weekKeyFromDate()
+    const existing = await getWeek(weekKey)
+    
+    if (existing) {
+      return weekKey
+    }
+    
+    // Week doesn't exist - create it
+    const { error } = await supabase
+      .from('weeks')
+      .insert({
+        league_id: currentLeagueId,
+        week_key: weekKey,
+        opened_at: new Date().toISOString(),
+        closed_at: null,
+        b_groups_unlocked: false,
+      })
+    
+    if (error) throw error
+    return weekKey
+  } catch (err) {
+    console.error('Error ensuring current week exists:', err)
+    return null
+  }
+}
+
 export async function openWeek(weekKey) {
   try {
     if (!currentLeagueId) return weekKey
