@@ -86,6 +86,7 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const wrapRef = useRef(null)
+  const pointerStartRef = useRef(null)
 
   const filtered = value.trim().length > 0
     ? suggestions.filter(s =>
@@ -134,6 +135,28 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
     setActiveIndex(-1)
   }
 
+  function handleOptionPointerDown(e) {
+    // Store the starting position to detect if user is scrolling
+    pointerStartRef.current = { x: e.clientX, y: e.clientY }
+    // Keep input focused during selection
+    e.preventDefault()
+  }
+
+  function handleOptionPointerUp(e, suggestion) {
+    // Only select if pointer didn't move much (genuine tap, not scroll)
+    const start = pointerStartRef.current
+    if (start) {
+      const moveDistance = Math.sqrt(
+        Math.pow(e.clientX - start.x, 2) + Math.pow(e.clientY - start.y, 2)
+      )
+      // Allow up to 10px movement to account for finger size and minor movements
+      if (moveDistance < 10) {
+        pick(suggestion)
+      }
+    }
+    pointerStartRef.current = null
+  }
+
   return (
     <div className="ac-wrap" ref={wrapRef}>
       <input
@@ -147,16 +170,16 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
         required={required}
       />
       {open && filtered.length > 0 && (
-        <ul className="ac-dropdown" role="listbox">
+        <ul className="ac-dropdown" role="listbox" style={{ overscrollBehavior: 'contain' }}>
           {filtered.map((s, i) => (
             <li
               key={s.email}
               className={`ac-option${i === activeIndex ? ' ac-option--active' : ''}`}
               role="option"
               aria-selected={i === activeIndex}
-              // onPointerDown + preventDefault keeps the input focused so the
-              // blur event doesn't close the dropdown before the selection fires
-              onPointerDown={e => { e.preventDefault(); pick(s) }}
+              onPointerDown={handleOptionPointerDown}
+              onPointerUp={e => handleOptionPointerUp(e, s)}
+              style={{ touchAction: 'auto' }}
             >
               <span className="ac-option-name">{s.name}</span>
               <span className="ac-option-email">{s.email}</span>
