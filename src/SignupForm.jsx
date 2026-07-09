@@ -86,6 +86,7 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const wrapRef = useRef(null)
+  const pointerStartRef = useRef(null)
 
   const filtered = value.trim().length > 0
     ? suggestions.filter(s =>
@@ -134,6 +135,28 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
     setActiveIndex(-1)
   }
 
+  function handleOptionPointerDown(e) {
+    // Store the starting position to detect if user is scrolling
+    pointerStartRef.current = { x: e.clientX, y: e.clientY }
+    // Keep input focused during selection
+    e.preventDefault()
+  }
+
+  function handleOptionPointerUp(e, suggestion) {
+    // Only select if pointer didn't move much (genuine tap, not scroll)
+    const start = pointerStartRef.current
+    if (start) {
+      const moveDistance = Math.sqrt(
+        Math.pow(e.clientX - start.x, 2) + Math.pow(e.clientY - start.y, 2)
+      )
+      // Allow up to 10px movement to account for finger size and minor movements
+      if (moveDistance < 10) {
+        pick(suggestion)
+      }
+    }
+    pointerStartRef.current = null
+  }
+
   return (
     <div className="ac-wrap" ref={wrapRef}>
       <input
@@ -147,16 +170,16 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
         required={required}
       />
       {open && filtered.length > 0 && (
-        <ul className="ac-dropdown" role="listbox">
+        <ul className="ac-dropdown" role="listbox" style={{ overscrollBehavior: 'contain' }}>
           {filtered.map((s, i) => (
             <li
               key={s.email}
               className={`ac-option${i === activeIndex ? ' ac-option--active' : ''}`}
               role="option"
               aria-selected={i === activeIndex}
-              // onPointerDown + preventDefault keeps the input focused so the
-              // blur event doesn't close the dropdown before the selection fires
-              onPointerDown={e => { e.preventDefault(); pick(s) }}
+              onPointerDown={handleOptionPointerDown}
+              onPointerUp={e => handleOptionPointerUp(e, s)}
+              style={{ touchAction: 'auto' }}
             >
               <span className="ac-option-name">{s.name}</span>
               <span className="ac-option-email">{s.email}</span>
@@ -517,7 +540,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
 
       if (reason.includes("already signed up")) {
         title = 'Already Signed Up'
-        hint = 'You can only sign up once per week. If you need to change your hole or group, contact an administrator.'
+        hint = 'You can only sign up once per week. If you need to change your hole or group, use the icon on the hole cards or drag and drop players.'
       } else if (reason.includes("Group B holes are not yet available")) {
         title = 'Group B Not Available'
         hint = `Group B holes unlock once ${B_GROUP_THRESHOLD} players have signed up. Please choose a Group A hole.`
@@ -588,7 +611,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       await reloadHoles()
       if (onSignedUp) await onSignedUp()
     } else {
-      showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact an administrator.')
+      showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact your league manager.')
     }
   }
 
@@ -792,7 +815,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
             <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
               <PlayerAutocomplete
-                placeholder="First Last (e.g., Jane Smith)"
+                placeholder="First & Last Name (e.g., Jane Smith)"
                 value={name}
                 onChange={v => { setName(v); setIsPlayerRecognized(false); setEmail(''); setPhone(''); setMsg(null) }}
                 onSelect={s => { 
@@ -820,7 +843,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   />
                   <input
                     type="tel"
-                    placeholder="Phone (10 digits)"
+                    placeholder="Phone Number (10 digits)"
                     value={phone}
                     onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
                     maxLength="14"
@@ -894,7 +917,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                     </button>
                   </div>
                   <PlayerAutocomplete
-                    placeholder={`First Last (e.g., Jane Smith)`}
+                    placeholder={`First & Last Name (e.g., Jane Smith)`}
                     value={additionalPlayers[i].name}
                     onChange={v => { 
                       updateAdditionalPlayer(i, 'name', v); 
@@ -930,7 +953,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                       />
                       <input
                         type="tel"
-                        placeholder="Phone (10 digits)"
+                        placeholder="Phone Number (10 digits)"
                         value={additionalPlayers[i].phone}
                         onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
                         maxLength="14"

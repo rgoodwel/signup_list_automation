@@ -542,7 +542,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
   
   const weekKey = await getCurrentWeekKey()
   if (!weekKey) {
-    return { ok: false, reason: 'Signups are currently closed. Please check back later or contact an administrator.' }
+    return { ok: false, reason: 'Signups are currently closed. Please check back later or contact your league manager.' }
   }
 
   if (!isFullName(name)) {
