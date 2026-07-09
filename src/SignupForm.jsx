@@ -361,7 +361,11 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!name.trim() || !email.trim() || !phone.trim()) {
+    // When player is recognized, email/phone come from database; otherwise require manual entry
+    const emailRequired = !isPlayerRecognized && !email.trim()
+    const phoneRequired = !isPlayerRecognized && !phone.trim()
+
+    if (!name.trim() || emailRequired || phoneRequired) {
       showError(
         'Missing Information',
         'Please fill in your name, email address, and phone number before signing up.',
