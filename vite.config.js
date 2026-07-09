@@ -5,8 +5,8 @@ import historyApiFallback from 'connect-history-api-fallback'
 export default defineConfig({
   plugins: [react()],
   define: {
-    __SUPABASE_URL__: JSON.stringify(process.env.SUPABASE_URL),
-    __SUPABASE_ANON_KEY__: JSON.stringify(process.env.SUPABASE_ANON_KEY),
+    __SUPABASE_URL__: JSON.stringify(process.env.VITE_SUPABASE_URL),
+    __SUPABASE_ANON_KEY__: JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY),
   },
   server: {
     middlewares: [
