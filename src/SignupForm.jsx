@@ -345,25 +345,33 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
 
   // Format phone number as (XXX) XXX-XXXX as user types
   function formatPhoneNumber(value) {
+    console.log('[formatPhoneNumber] Input:', value, 'Type:', typeof value)
     const digits = value.replace(/\D/g, '').slice(0, 10)
+    console.log('[formatPhoneNumber] Extracted digits:', digits, 'Length:', digits.length)
     if (digits.length === 0) return ''
     if (digits.length <= 3) return digits
     if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+    const formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+    console.log('[formatPhoneNumber] Output:', formatted)
+    return formatted
   }
 
   // Validate phone number is 10 digits
   function isValidPhoneNumber(phoneStr) {
+    console.log('[isValidPhoneNumber] Input:', phoneStr, 'Type:', typeof phoneStr)
     const digits = phoneStr.replace(/\D/g, '')
+    console.log('[isValidPhoneNumber] Extracted digits:', digits, 'Length:', digits.length, 'Valid:', digits.length === 10)
     return digits.length === 10
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
+    console.log('[handleSubmit] Starting - name:', name, 'email:', email, 'phone:', phone, 'isPlayerRecognized:', isPlayerRecognized)
 
     // When player is recognized, email/phone come from database; otherwise require manual entry
     const emailRequired = !isPlayerRecognized && !email.trim()
     const phoneRequired = !isPlayerRecognized && !phone.trim()
+    console.log('[handleSubmit] Validation - emailRequired:', emailRequired, 'phoneRequired:', phoneRequired)
 
     if (!name.trim() || emailRequired || phoneRequired) {
       showError(
@@ -375,6 +383,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     }
 
     // Validate phone number
+    console.log('[handleSubmit] About to validate phone:', phone)
     if (!isValidPhoneNumber(phone)) {
       showError(
         'Invalid Phone Number',
@@ -776,7 +785,17 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                 placeholder="First Last (e.g., Jane Smith)"
                 value={name}
                 onChange={v => { setName(v); setIsPlayerRecognized(false); setEmail(''); setPhone(''); setMsg(null) }}
-                onSelect={s => { setName(s.name); setEmail(s.email); setPhone(formatPhoneNumber(s.phone || '')); setIsPlayerRecognized(true); setMsg(null) }}
+                onSelect={s => { 
+                  console.log('[PlayerAutocomplete.onSelect] Player selected:', s)
+                  console.log('[PlayerAutocomplete.onSelect] Phone from database:', s.phone)
+                  const formattedPhone = formatPhoneNumber(s.phone || '')
+                  console.log('[PlayerAutocomplete.onSelect] After formatting:', formattedPhone)
+                  setName(s.name); 
+                  setEmail(s.email); 
+                  setPhone(formattedPhone); 
+                  setIsPlayerRecognized(true); 
+                  setMsg(null) 
+                }}
                 suggestions={playerSuggestions}
                 required
               />
