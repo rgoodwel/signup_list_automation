@@ -173,6 +173,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [isPlayerRecognized, setIsPlayerRecognized] = useState(false) // Track if player selected from database
   const [hole, setHole] = useState('AUTO')
   const [additionalPlayers, setAdditionalPlayers] = useState([
     { name: '', email: '', phone: '' },
@@ -180,6 +181,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     { name: '', email: '', phone: '' },
   ])
   const [additionalCount, setAdditionalCount] = useState(0)
+  const [additionalPlayersRecognized, setAdditionalPlayersRecognized] = useState([false, false, false]) // Track which additional players are from database
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
   const [removal, setRemoval] = useState(null)
@@ -268,7 +270,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
-    .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '' }))
+    .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '', phone: p?.phone || '' }))
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   // Derived state from week data
@@ -344,23 +346,35 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
 
   // Format phone number as (XXX) XXX-XXXX as user types
   function formatPhoneNumber(value) {
+    console.log('[formatPhoneNumber] Input:', value, 'Type:', typeof value)
     const digits = value.replace(/\D/g, '').slice(0, 10)
+    console.log('[formatPhoneNumber] Extracted digits:', digits, 'Length:', digits.length)
     if (digits.length === 0) return ''
     if (digits.length <= 3) return digits
     if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+    const formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+    console.log('[formatPhoneNumber] Output:', formatted)
+    return formatted
   }
 
   // Validate phone number is 10 digits
   function isValidPhoneNumber(phoneStr) {
+    console.log('[isValidPhoneNumber] Input:', phoneStr, 'Type:', typeof phoneStr)
     const digits = phoneStr.replace(/\D/g, '')
+    console.log('[isValidPhoneNumber] Extracted digits:', digits, 'Length:', digits.length, 'Valid:', digits.length === 10)
     return digits.length === 10
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
+    console.log('[handleSubmit] Starting - name:', name, 'email:', email, 'phone:', phone, 'isPlayerRecognized:', isPlayerRecognized)
 
-    if (!name.trim() || !email.trim() || !phone.trim()) {
+    // When player is recognized, email/phone come from database; otherwise require manual entry
+    const emailRequired = !isPlayerRecognized && !email.trim()
+    const phoneRequired = !isPlayerRecognized && !phone.trim()
+    console.log('[handleSubmit] Validation - emailRequired:', emailRequired, 'phoneRequired:', phoneRequired)
+
+    if (!name.trim() || emailRequired || phoneRequired) {
       showError(
         'Missing Information',
         'Please fill in your name, email address, and phone number before signing up.',
@@ -370,6 +384,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     }
 
     // Validate phone number
+    console.log('[handleSubmit] About to validate phone:', phone)
     if (!isValidPhoneNumber(phone)) {
       showError(
         'Invalid Phone Number',
@@ -404,7 +419,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      if (!p.email.trim()) {
+      // Skip email check if player was recognized from database
+      const additionalIsRecognized = additionalPlayersRecognized[i] || false
+      if (!additionalIsRecognized && !p.email.trim()) {
         showError(
           'Missing Information',
           `Additional Player ${i + 1} — Email is required.`,
@@ -413,7 +430,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      if (!p.phone.trim()) {
+      // Skip phone check if player was recognized from database
+      if (!additionalIsRecognized && !p.phone.trim()) {
         showError(
           'Missing Information',
           `Additional Player ${i + 1} — Phone number is required.`,
@@ -431,7 +449,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      if (!isValidPhoneNumber(p.phone)) {
+      // Skip phone validation if player was recognized from database
+      if (!additionalIsRecognized && !isValidPhoneNumber(p.phone)) {
         showError(
           'Invalid Phone Number',
           `Additional Player ${i + 1} — Please enter a valid 10-digit phone number.`,
@@ -543,6 +562,11 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     setAdditionalPlayers(prev => {
       const next = [...prev]
       next[index] = { name: '', email: '', phone: '' }
+      return next
+    })
+    setAdditionalPlayersRecognized(prev => {
+      const next = [...prev]
+      next[index] = false
       return next
     })
     setAdditionalCount(count => Math.max(0, count - 1))
@@ -770,28 +794,45 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
               <PlayerAutocomplete
                 placeholder="First Last (e.g., Jane Smith)"
                 value={name}
-                onChange={v => { setName(v); setMsg(null) }}
-                onSelect={s => { setName(s.name); setEmail(s.email); setMsg(null) }}
+                onChange={v => { setName(v); setIsPlayerRecognized(false); setEmail(''); setPhone(''); setMsg(null) }}
+                onSelect={s => { 
+                  console.log('[PlayerAutocomplete.onSelect] Player selected:', s)
+                  console.log('[PlayerAutocomplete.onSelect] Phone from database:', s.phone)
+                  const formattedPhone = formatPhoneNumber(s.phone || '')
+                  console.log('[PlayerAutocomplete.onSelect] After formatting:', formattedPhone)
+                  setName(s.name); 
+                  setEmail(s.email); 
+                  setPhone(formattedPhone); 
+                  setIsPlayerRecognized(true); 
+                  setMsg(null) 
+                }}
                 suggestions={playerSuggestions}
                 required
               />
-              <div className="form-row">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); setMsg(null) }}
-                  required
-                />
-                <input
-                  type="tel"
-                  placeholder="Phone (10 digits)"
-                  value={phone}
-                  onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
-                  maxLength="14"
-                  required
-                />
-              </div>
+              {!isPlayerRecognized && (
+                <div className="form-row">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); setMsg(null) }}
+                    required
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone (10 digits)"
+                    value={phone}
+                    onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
+                    maxLength="14"
+                    required
+                  />
+                </div>
+              )}
+              {isPlayerRecognized && (
+                <div className="form-row" style={{ color: '#666', fontSize: '0.9em', padding: '8px 0' }}>
+                  Player recognized ✓
+                </div>
+              )}
               <select
                 value={hole}
                 onChange={e => { setHole(e.target.value); setMsg(null) }}
@@ -855,29 +896,52 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   <PlayerAutocomplete
                     placeholder={`First Last (e.g., Jane Smith)`}
                     value={additionalPlayers[i].name}
-                    onChange={v => updateAdditionalPlayer(i, 'name', v)}
+                    onChange={v => { 
+                      updateAdditionalPlayer(i, 'name', v); 
+                      updateAdditionalPlayer(i, 'email', ''); 
+                      updateAdditionalPlayer(i, 'phone', '');
+                      setAdditionalPlayersRecognized(prev => {
+                        const next = [...prev]
+                        next[i] = false
+                        return next
+                      })
+                    }}
                     onSelect={s => { 
+                      console.log('[AdditionalPlayer.onSelect]', i, 'Player selected:', s)
                       updateAdditionalPlayer(i, 'name', s.name)
                       updateAdditionalPlayer(i, 'email', s.email)
+                      updateAdditionalPlayer(i, 'phone', formatPhoneNumber(s.phone || ''))
+                      setAdditionalPlayersRecognized(prev => {
+                        const next = [...prev]
+                        next[i] = true
+                        return next
+                      })
                     }}
                     suggestions={playerSuggestions}
                     inputClass="ac-additional"
                   />
-                  <div className="form-row">
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      value={additionalPlayers[i].email}
-                      onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
-                    />
-                    <input
-                      type="tel"
-                      placeholder="Phone (10 digits)"
-                      value={additionalPlayers[i].phone}
-                      onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
-                      maxLength="14"
-                    />
-                  </div>
+                  {!additionalPlayersRecognized[i] && (
+                    <div className="form-row">
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={additionalPlayers[i].email}
+                        onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone (10 digits)"
+                        value={additionalPlayers[i].phone}
+                        onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
+                        maxLength="14"
+                      />
+                    </div>
+                  )}
+                  {additionalPlayersRecognized[i] && (
+                    <div className="form-row" style={{ color: '#666', fontSize: '0.9em', padding: '8px 0' }}>
+                      Player recognized ✓
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

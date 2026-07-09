@@ -461,24 +461,31 @@ export async function getPlayers() {
     if (!currentLeagueId) return {}
     const { data, error } = await supabase
       .from('weekly_players')
-      .select('player_email, player_name')
+      .select('player_email, player_name, player_phone')
       .eq('league_id', currentLeagueId)
       .not('player_email', 'is', null)
     
     if (error) throw error
     
+    console.log('[getPlayers] Raw data from database:', data)
+    
     const players = {}
     const seen = new Set()
     for (const row of (data || [])) {
+      console.log('[getPlayers] Processing row:', row)
       const email = row.player_email?.trim().toLowerCase()
       if (email && !seen.has(email)) {
-        players[email] = { 
+        const playerObj = { 
           email,
-          name: row.player_name || email
+          name: row.player_name || email,
+          phone: row.player_phone || ''
         }
+        console.log('[getPlayers] Created player object:', playerObj)
+        players[email] = playerObj
         seen.add(email)
       }
     }
+    console.log('[getPlayers] Final players object:', players)
     return players
   } catch (err) {
     console.error('Error getting players:', err)
