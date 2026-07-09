@@ -856,39 +856,6 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   Player recognized ✓
                 </div>
               )}
-              <select
-                value={hole}
-                onChange={e => { setHole(e.target.value); setMsg(null) }}
-                required
-              >
-                <option value="AUTO">
-                  Automatic Smart Hole Assignment
-                </option>
-                {/* Group A holes with available spots */}
-                {holeKeys.some(k => canFitGroup(k)) && (
-                  <optgroup label="Group A">
-                    {holeKeys
-                      .filter(k => canFitGroup(k))
-                      .map(holeKey => (
-                        <option key={holeKey} value={holeKey}>
-                          {holeLabel(holeKey, bUnlocked)} ({getAvailableSpots(holeKey)} spots)
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-                {/* Group B holes with available spots (only if unlocked) */}
-                {bUnlocked && bHoleKeys.some(k => canFitGroup(k)) && (
-                  <optgroup label="Group B">
-                    {bHoleKeys
-                      .filter(k => canFitGroup(k))
-                      .map(holeKey => (
-                        <option key={holeKey} value={holeKey}>
-                          Hole {holeKey} ({getAvailableSpots(holeKey)} spots)
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-              </select>
             </div>
 
             <div className="additional-player-block">
@@ -968,6 +935,39 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                 </div>
               ))}
             </div>
+            <select
+              value={hole}
+              onChange={e => { setHole(e.target.value); setMsg(null) }}
+              required
+            >
+              <option value="AUTO">
+                Automatic Smart Hole Assignment
+              </option>
+              {/* Group A holes with available spots */}
+              {holeKeys.some(k => canFitGroup(k)) && (
+                <optgroup label="Group A">
+                  {holeKeys
+                    .filter(k => canFitGroup(k))
+                    .map(holeKey => (
+                      <option key={holeKey} value={holeKey}>
+                        {holeLabel(holeKey, bUnlocked)} ({getAvailableSpots(holeKey)} spots)
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+              {/* Group B holes with available spots (only if unlocked) */}
+              {bUnlocked && bHoleKeys.some(k => canFitGroup(k)) && (
+                <optgroup label="Group B">
+                  {bHoleKeys
+                    .filter(k => canFitGroup(k))
+                    .map(holeKey => (
+                      <option key={holeKey} value={holeKey}>
+                        Hole {holeKey} ({getAvailableSpots(holeKey)} spots)
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+            </select>
             <div className="signup-submit-row">
               <button type="submit">Sign Up</button>
               <span className="signup-player-count">{totalAllPlayers} player{totalAllPlayers !== 1 ? 's' : ''} signed up</span>
