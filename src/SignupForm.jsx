@@ -274,7 +274,8 @@ export default function SignupForm({ players, onSignedUp }) {
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   // Derived state from week data
-  const isClosed   = !weekKey || (week && week.closed_at)
+  const isWeekLocked   = weekKey && week && week.closed_at
+  const isWeekFinalized = !weekKey  // No current week means it was finalized
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
   const bUnlocked = week?.b_groups_unlocked || false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
@@ -672,9 +673,14 @@ export default function SignupForm({ players, onSignedUp }) {
         </div>
       ) : (
         <>
-          {isClosed ? (
+          {isWeekFinalized ? (
             <div className="closed-notice">
-              <p className="week-closed-notice">🔒 Signups are currently closed.</p>
+              <p className="week-closed-notice">✅ Previous week signups are closed.</p>
+              <p className="reopen-notice">The next week's signups are not yet open. Check back soon!</p>
+            </div>
+          ) : isWeekLocked ? (
+            <div className="closed-notice">
+              <p className="week-closed-notice">🔒 Signups are currently locked.</p>
               <p className="reopen-notice">New players cannot register, but you can still move or remove existing players below.</p>
             </div>
           ) : (
@@ -683,7 +689,7 @@ export default function SignupForm({ players, onSignedUp }) {
               {roundDateLabel ? <> ({roundDateLabel})</> : null}
             </p>
           )}
-          {!isClosed && (
+          {!isWeekLocked && !isWeekFinalized && (
             <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
               <PlayerAutocomplete

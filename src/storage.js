@@ -166,11 +166,12 @@ export async function refreshFromBackend() {
 export async function getCurrentWeekKey() {
   try {
     if (!currentLeagueId) return null
-    // Get the most recent week for this league
+    // Get the most recent non-finalized week for this league
     const { data, error } = await supabase
       .from('weeks')
       .select('week_key')
       .eq('league_id', currentLeagueId)
+      .is('finalized_at', null)  // Only get weeks that haven't been finalized/closed
       .order('opened_at', { ascending: false })
       .limit(1)
       .single()
@@ -317,6 +318,40 @@ export async function lockCurrentWeek() {
     }
   } catch (err) {
     console.error('Error locking week:', err)
+    throw err
+  }
+}
+
+export async function finalizeCurrentWeek() {
+  try {
+    if (!currentLeagueId) return
+    
+    const weekKey = await getCurrentWeekKey()
+    if (!weekKey) return
+
+    // Fetch the week id first
+    const { data: weeks, error: fetchError } = await supabase
+      .from('weeks')
+      .select('id')
+      .eq('league_id', currentLeagueId)
+      .eq('week_key', weekKey)
+
+    if (fetchError) {
+      console.error('Error fetching week to finalize:', fetchError)
+      throw fetchError
+    }
+
+    if (weeks && weeks.length > 0) {
+      await supabase
+        .from('weeks')
+        .update({ 
+          finalized_at: new Date().toISOString(),
+          closed_at: new Date().toISOString() // Also lock it when finalizing
+        })
+        .eq('id', weeks[0].id)
+    }
+  } catch (err) {
+    console.error('Error finalizing week:', err)
     throw err
   }
 }

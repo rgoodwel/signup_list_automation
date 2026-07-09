@@ -5,6 +5,7 @@ import {
   getWeek,
   openWeek,
   lockCurrentWeek,
+  finalizeCurrentWeek,
   getNextWeekKey,
   weekKeyFromDate,
   weekKeyToLabel,
@@ -82,11 +83,17 @@ export default function CurrentWeekPanel({ onRefresh }) {
   async function handleCloseWeek() {
     if (!confirm(`Close ${weekKeyToLabel(weekKey)}?`)) return
     try {
-      await lockCurrentWeek()
-      // Immediately refresh the week state
-      if (weekKey) {
-        const updated = await getWeek(weekKey)
+      await finalizeCurrentWeek()
+      // Immediately refresh the week state - should now be removed from current
+      const newWeekKey = await getCurrentWeekKey()
+      if (newWeekKey) {
+        const updated = await getWeek(newWeekKey)
         setWeek(updated)
+        setWeekKey(newWeekKey)
+      } else {
+        // No current week anymore
+        setWeek(null)
+        setWeekKey(null)
       }
       if (onRefresh) await onRefresh()
     } catch (err) {
