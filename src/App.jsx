@@ -51,7 +51,7 @@ export default function App() {
       if (active) setReady(true)
     })()
     return () => { active = false }
-  }, [league?.id, refresh])
+  }, [league?.id])
 
   if (!ready) {
     return (

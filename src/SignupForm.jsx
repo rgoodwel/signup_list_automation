@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useLeague } from './contexts/LeagueContext'
 import {
   addSignupToWeek,
@@ -192,8 +192,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const [holes, setHoles] = useState({})
 
   // Define hole keys early so they can be used in useEffect
-  const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
-  const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
+  // Memoize to ensure they're stable across renders (never changes since HOLE_COUNT is constant)
+  const holeKeys = useMemo(() => Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1)), [])
+  const bHoleKeys = useMemo(() => Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`), [])
 
   // Fetch current week and populate holes display
   // Initialize from props passed by App
@@ -238,7 +239,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       }
       loadHoles()
     }
-  }, [propWeekKey, propWeek, league?.id, holeKeys, bHoleKeys])
+  }, [propWeekKey, propWeek, league?.id])
 
   // Real-time subscription to weekly_players changes
   useEffect(() => {

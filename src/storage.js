@@ -234,14 +234,14 @@ export async function ensureCurrentWeekExists() {
     
     // Get or create current week
     const weekKey = weekKeyFromDate()
-    const existing = await getWeek(weekKey)
+    let existing = await getWeek(weekKey)
     
     if (existing) {
       return weekKey
     }
     
     // Week doesn't exist - create it
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from('weeks')
       .insert({
         league_id: currentLeagueId,
@@ -251,7 +251,22 @@ export async function ensureCurrentWeekExists() {
         b_groups_unlocked: false,
       })
     
-    if (error) throw error
+    if (insertError) throw insertError
+    
+    // CRITICAL: Verify the insert succeeded before returning
+    // This ensures the row is replicated and queryable before we continue
+    let verified = await getWeek(weekKey)
+    if (!verified) {
+      // Retry once after brief delay - might be replication delay
+      await new Promise(r => setTimeout(r, 50))
+      verified = await getWeek(weekKey)
+    }
+    
+    if (!verified) {
+      console.error('Week created but verification failed - replication delay')
+      // Return weekKey anyway; refresh() will retry if needed
+    }
+    
     return weekKey
   } catch (err) {
     console.error('Error ensuring current week exists:', err)
