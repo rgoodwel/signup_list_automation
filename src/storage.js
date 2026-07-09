@@ -499,13 +499,18 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
   const emailKey = email.trim().toLowerCase()
 
   try {
-    const { data: existing } = await supabase
+    const { data: existing, error: existError } = await supabase
       .from('weekly_players')
       .select('id')
       .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
       .eq('player_email', emailKey)
       .single()
+    
+    // .single() returns PGRST116 error when no rows found (expected for new signups)
+    if (existError && existError.code !== 'PGRST116') {
+      throw existError
+    }
     
     if (existing) {
       return { ok: false, reason: "You're already signed up for this week!" }
@@ -565,13 +570,18 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
     
     // Check for duplicate guest names in the same week (league-specific)
     for (const guest of extras) {
-      const { data: existing } = await supabase
+      const { data: existing, error: existError } = await supabase
         .from('weekly_players')
         .select('id')
         .eq('league_id', currentLeagueId)
         .eq('week_number', weekKey)
         .ilike('player_name', guest.name.trim())
         .single()
+      
+      // .single() returns PGRST116 error when no rows found (expected for new players)
+      if (existError && existError.code !== 'PGRST116') {
+        throw existError
+      }
       
       if (existing) {
         return {
