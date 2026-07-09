@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useLeague } from './contexts/LeagueContext'
-import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, setCurrentLeague } from './storage'
+import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, getCurrentWeekKey, getWeek, setCurrentLeague, ensureCurrentWeekExists } from './storage'
 import SignupForm from './SignupForm'
 import AdminView from './AdminView'
 
@@ -9,6 +9,8 @@ export default function App() {
   const [view, setView]       = useState('player') // 'player' | 'admin'
   const [players, setPlayers] = useState({})
   const [weeks, setWeeks]     = useState({})
+  const [currentWeekKey, setCurrentWeekKey] = useState(null)
+  const [currentWeek, setCurrentWeek] = useState(null)
   const [ready, setReady]     = useState(false)
 
   const refresh = useCallback(async () => {
@@ -17,25 +19,39 @@ export default function App() {
     const w = await getWeeks()
     setPlayers(p)
     setWeeks(w)
+    
+    // Also fetch current week
+    const weekKey = await getCurrentWeekKey()
+    setCurrentWeekKey(weekKey)
+    if (weekKey) {
+      const week = await getWeek(weekKey)
+      setCurrentWeek(week)
+    }
   }, [])
 
   useEffect(() => {
-    // Set current league whenever league changes
+    // Set current league FIRST, before any storage queries
     if (league?.id) {
       setCurrentLeague(league.id)
     }
   }, [league?.id])
 
   useEffect(() => {
+    // Only initialize and refresh after league is set
+    if (!league?.id) return
+    
     let active = true
     ;(async () => {
       await initializeStorage()
+      if (!active) return
+      // Ensure current week exists so players can be displayed
+      await ensureCurrentWeekExists()
       if (!active) return
       await refresh()
       if (active) setReady(true)
     })()
     return () => { active = false }
-  }, [refresh])
+  }, [league?.id])
 
   if (!ready) {
     return (
@@ -68,7 +84,7 @@ export default function App() {
 
       <main>
         {view === 'player' ? (
-          <SignupForm players={players} onSignedUp={refresh} />
+          <SignupForm players={players} weekKey={currentWeekKey} week={currentWeek} onSignedUp={refresh} />
         ) : (
           <AdminView players={players} weeks={weeks} onRefresh={refresh} />
         )}

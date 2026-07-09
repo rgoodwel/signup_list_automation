@@ -117,6 +117,38 @@ export function compareWeekKeys(a, b) {
   return ay !== by ? ay - by : aw - bw
 }
 
+export function getNextWeekKey(weekKey) {
+  if (!weekKey) {
+    // If no weekKey provided, use current date
+    return weekKeyFromDate()
+  }
+  const [year, w] = weekKey.split('-W')
+  const weekNum = parseInt(w, 10)
+  const nextWeekNum = weekNum + 1
+  
+  // For 2026, weeks go from W28 to W52
+  if (nextWeekNum > 52) {
+    return `${parseInt(year) + 1}-W01`
+  }
+  
+  return `${year}-W${String(nextWeekNum).padStart(2, '0')}`
+}
+
+export function isValidWeekKey(weekKey, year = 2026) {
+  const match = weekKey.match(/^(\d{4})-W(\d{2})$/)
+  if (!match) return false
+  
+  const [, yearStr, weekStr] = match
+  const w = parseInt(weekStr, 10)
+  const y = parseInt(yearStr, 10)
+  
+  // For the specified year, allow weeks W28 through W52
+  if (y === year) return w >= 28 && w <= 52
+  
+  // For other years, allow weeks W01 through W52
+  return w >= 1 && w <= 53
+}
+
 // ── Supabase operations ─────────────────────────────────────────────────────
 
 export async function initializeStorage() {
@@ -138,11 +170,12 @@ export async function refreshFromBackend() {
 export async function getCurrentWeekKey() {
   try {
     if (!currentLeagueId) return null
-    // Get the most recent week for this league
+    // Get the most recent non-finalized week for this league
     const { data, error } = await supabase
       .from('weeks')
       .select('week_key')
       .eq('league_id', currentLeagueId)
+      .is('finalized_at', null)  // Only get weeks that haven't been finalized/closed
       .order('opened_at', { ascending: false })
       .limit(1)
       .single()
@@ -191,6 +224,52 @@ export async function getWeek(weekKey) {
     return data || null
   } catch (err) {
     console.error('Error getting week:', err)
+    return null
+  }
+}
+
+export async function ensureCurrentWeekExists() {
+  try {
+    if (!currentLeagueId) return null
+    
+    // Get or create current week
+    const weekKey = weekKeyFromDate()
+    let existing = await getWeek(weekKey)
+    
+    if (existing) {
+      return weekKey
+    }
+    
+    // Week doesn't exist - create it
+    const { error: insertError } = await supabase
+      .from('weeks')
+      .insert({
+        league_id: currentLeagueId,
+        week_key: weekKey,
+        opened_at: new Date().toISOString(),
+        closed_at: null,
+        b_groups_unlocked: false,
+      })
+    
+    if (insertError) throw insertError
+    
+    // CRITICAL: Verify the insert succeeded before returning
+    // This ensures the row is replicated and queryable before we continue
+    let verified = await getWeek(weekKey)
+    if (!verified) {
+      // Retry once after brief delay - might be replication delay
+      await new Promise(r => setTimeout(r, 50))
+      verified = await getWeek(weekKey)
+    }
+    
+    if (!verified) {
+      console.error('Week created but verification failed - replication delay')
+      // Return weekKey anyway; refresh() will retry if needed
+    }
+    
+    return weekKey
+  } catch (err) {
+    console.error('Error ensuring current week exists:', err)
     return null
   }
 }
@@ -262,7 +341,7 @@ export async function openWeek(weekKey) {
   }
 }
 
-export async function closeCurrentWeek() {
+export async function lockCurrentWeek() {
   try {
     if (!currentLeagueId) return
     
@@ -277,7 +356,7 @@ export async function closeCurrentWeek() {
       .eq('week_key', weekKey)
 
     if (fetchError) {
-      console.error('Error fetching week to close:', fetchError)
+      console.error('Error fetching week to lock:', fetchError)
       throw fetchError
     }
 
@@ -288,9 +367,69 @@ export async function closeCurrentWeek() {
         .eq('id', weeks[0].id)
     }
   } catch (err) {
-    console.error('Error closing week:', err)
+    console.error('Error locking week:', err)
     throw err
   }
+}
+
+export async function finalizeCurrentWeek() {
+  try {
+    if (!currentLeagueId) return
+    
+    const weekKey = await getCurrentWeekKey()
+    if (!weekKey) return
+
+    // Fetch the week id first
+    const { data: weeks, error: fetchError } = await supabase
+      .from('weeks')
+      .select('id')
+      .eq('league_id', currentLeagueId)
+      .eq('week_key', weekKey)
+
+    if (fetchError) {
+      console.error('Error fetching week to finalize:', fetchError)
+      throw fetchError
+    }
+
+    if (weeks && weeks.length > 0) {
+      await supabase
+        .from('weeks')
+        .update({ 
+          finalized_at: new Date().toISOString(),
+          closed_at: new Date().toISOString() // Also lock it when finalizing
+        })
+        .eq('id', weeks[0].id)
+    }
+  } catch (err) {
+    console.error('Error finalizing week:', err)
+    throw err
+  }
+}
+
+export async function closeCurrentWeekAndOpenNext() {
+  try {
+    if (!currentLeagueId) return
+    
+    const currentWeekKey = await getCurrentWeekKey()
+    if (!currentWeekKey) throw new Error('No current week found')
+    
+    const nextWeekKey = getNextWeekKey(currentWeekKey)
+    
+    if (!isValidWeekKey(nextWeekKey)) {
+      throw new Error(`Cannot move to ${nextWeekKey} - outside allowed range (W28-W52 for 2026)`)
+    }
+    
+    // Ensure the next week exists, then open it
+    await openWeek(nextWeekKey)
+  } catch (err) {
+    console.error('Error closing week and opening next:', err)
+    throw err
+  }
+}
+
+// Deprecated - use lockCurrentWeek instead
+export async function closeCurrentWeek() {
+  return lockCurrentWeek()
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -325,7 +464,6 @@ export async function getPlayers() {
       .select('player_email, player_name')
       .eq('league_id', currentLeagueId)
       .not('player_email', 'is', null)
-      .eq('is_guest', false)
     
     if (error) throw error
     
@@ -390,7 +528,7 @@ async function getHolePlayers(weekKey, holeNumber, holeGroup) {
   }
 }
 
-export async function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
+export async function addSignupToWeek({ name, email, phone, hole, additionalPlayers = [] }) {
   if (!currentLeagueId) {
     return { ok: false, reason: 'No league selected. Please refresh and try again.' }
   }
@@ -407,14 +545,18 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
   const emailKey = email.trim().toLowerCase()
 
   try {
-    const { data: existing } = await supabase
+    const { data: existing, error: existError } = await supabase
       .from('weekly_players')
       .select('id')
       .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
       .eq('player_email', emailKey)
-      .eq('is_guest', false)
       .single()
+    
+    // .single() returns PGRST116 error when no rows found (expected for new signups)
+    if (existError && existError.code !== 'PGRST116') {
+      throw existError
+    }
     
     if (existing) {
       return { ok: false, reason: "You're already signed up for this week!" }
@@ -445,34 +587,52 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     }
 
     const extras = additionalPlayers
-      .map(p => p.trim())
-      .filter(Boolean)
+      .filter(p => p && p.name && p.name.trim())
       .slice(0, 3)
     
     // Validate all additional players
     for (const extra of extras) {
-      if (!isFullName(extra)) {
+      if (!isFullName(extra.name)) {
         return {
           ok: false,
-          reason: `"${extra}" — additional player names must include a first and last name (e.g., "John Smith").`,
+          reason: `"${extra.name}" — additional player names must include a first and last name (e.g., "John Smith").`,
+        }
+      }
+      
+      if (!extra.email || !extra.email.trim()) {
+        return {
+          ok: false,
+          reason: `"${extra.name}" — email address is required for all additional players.`,
+        }
+      }
+      
+      if (!extra.phone || !extra.phone.trim()) {
+        return {
+          ok: false,
+          reason: `"${extra.name}" — phone number is required for all additional players.`,
         }
       }
     }
     
     // Check for duplicate guest names in the same week (league-specific)
-    for (const guestName of extras) {
-      const { data: existing } = await supabase
+    for (const guest of extras) {
+      const { data: existing, error: existError } = await supabase
         .from('weekly_players')
         .select('id')
         .eq('league_id', currentLeagueId)
         .eq('week_number', weekKey)
-        .ilike('player_name', guestName.trim())
+        .ilike('player_name', guest.name.trim())
         .single()
+      
+      // .single() returns PGRST116 error when no rows found (expected for new players)
+      if (existError && existError.code !== 'PGRST116') {
+        throw existError
+      }
       
       if (existing) {
         return {
           ok: false,
-          reason: `"${guestName}" is already signed up for this week. Each player can only appear once.`,
+          reason: `"${guest.name}" is already signed up for this week. Each player can only appear once.`,
         }
       }
     }
@@ -558,11 +718,10 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         week_number: weekKey,
         player_name: name.trim(),
         player_email: emailKey,
+        player_phone: phone ? phone.replace(/\D/g, '') : null,
         hole_number: holeNumber,
         hole_group: holeGroup,
         signup_id: signupId,
-        is_guest: false,
-        primary_player_email: emailKey,
       })
     
     if (insertError) {
@@ -579,21 +738,20 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
     console.log('DEBUG: Primary player inserted, extras count:', extras.length)
 
     for (let i = 0; i < extras.length; i++) {
-      const guestName = extras[i]
-      console.log(`DEBUG: Inserting guest ${i + 1}/${extras.length}:`, guestName)
+      const guest = extras[i]
+      console.log(`DEBUG: Inserting guest ${i + 1}/${extras.length}:`, guest.name)
       
       const { error: guestError } = await supabase
         .from('weekly_players')
         .insert({
           league_id: currentLeagueId,
           week_number: weekKey,
-          player_name: guestName.trim(),
-          player_email: null,
+          player_name: guest.name.trim(),
+          player_email: guest.email.trim().toLowerCase(),
+          player_phone: guest.phone ? guest.phone.replace(/\D/g, '') : null,
           hole_number: holeNumber,
           hole_group: holeGroup,
           signup_id: signupId,
-          is_guest: true,
-          primary_player_email: emailKey,
         })
       
       if (guestError) {
@@ -601,10 +759,10 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         throw guestError
       }
       
-      // Log the guest signup
-      await logAuditEvent(weekKey, 'CREATE', guestName.trim(), null, holeNumber, holeGroup, {
-        type: 'guest',
-        primaryPlayer: emailKey,
+      // Log the signup
+      await logAuditEvent(weekKey, 'CREATE', guest.name.trim(), guest.email.trim().toLowerCase(), holeNumber, holeGroup, {
+        type: 'player',
+        groupInitiator: emailKey,
       })
       console.log(`DEBUG: Guest ${i + 1} inserted successfully`)
     }

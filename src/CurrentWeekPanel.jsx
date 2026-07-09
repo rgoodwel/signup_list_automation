@@ -4,7 +4,9 @@ import {
   getCurrentWeekKey,
   getWeek,
   openWeek,
-  closeCurrentWeek,
+  lockCurrentWeek,
+  finalizeCurrentWeek,
+  getNextWeekKey,
   weekKeyFromDate,
   weekKeyToLabel,
 } from './storage'
@@ -55,32 +57,87 @@ export default function CurrentWeekPanel({ onRefresh }) {
     loadWeekData()
   }, [onRefresh])
 
-  const isOpen  = weekKey && week && !week.closedAt
+  const isOpen  = weekKey && week && !week.closed_at
 
-  async function handleOpen() {
-    const key = weekKeyFromDate()
-    await openWeek(key)
-    if (onRefresh) await onRefresh()
+  async function handleLockToggle() {
+    try {
+      if (isOpen) {
+        // Lock the week
+        await lockCurrentWeek()
+      } else {
+        // Unlock the week
+        const key = weekKeyFromDate()
+        await openWeek(key)
+      }
+      // Immediately refresh the week state
+      if (weekKey) {
+        const updated = await getWeek(weekKey)
+        setWeek(updated)
+      }
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      console.error('Error toggling week lock:', err)
+    }
   }
 
-  async function handleClose() {
-    if (!confirm('Close signups for the current week?')) return
-    await closeCurrentWeek()
-    if (onRefresh) await onRefresh()
+  async function handleCloseWeek() {
+    if (!confirm(`Close ${weekKeyToLabel(weekKey)}?`)) return
+    try {
+      await finalizeCurrentWeek()
+      // Immediately refresh the week state - should now be removed from current
+      const newWeekKey = await getCurrentWeekKey()
+      if (newWeekKey) {
+        const updated = await getWeek(newWeekKey)
+        setWeek(updated)
+        setWeekKey(newWeekKey)
+      } else {
+        // No current week anymore
+        setWeek(null)
+        setWeekKey(null)
+      }
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      console.error('Error closing week:', err)
+    }
+  }
+
+  async function handleOpenNextWeek() {
+    try {
+      const nextWeek = getNextWeekKey(weekKey)  // Now handles null safely
+      if (!nextWeek) {
+        console.error('Could not determine next week')
+        return
+      }
+      if (!confirm(`Open ${weekKeyToLabel(nextWeek)}?`)) return
+      
+      await openWeek(nextWeek)
+      // Immediately refresh to the new week state
+      const newWeekKey = await getCurrentWeekKey()
+      if (newWeekKey) {
+        const updated = await getWeek(newWeekKey)
+        setWeek(updated)
+        setWeekKey(newWeekKey)
+      }
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      console.error('Error opening next week:', err)
+    }
   }
 
   return (
     <div className="panel">
       <div className="panel-header">
         <h2>Current Week</h2>
-        <div className="panel-actions">
+        <div className="panel-actions" style={{display: 'flex', gap: '8px'}}>
           {isOpen ? (
-            <button className="btn btn-danger" onClick={handleClose}>Lock Signups</button>
+            <button className="btn btn-danger" onClick={handleLockToggle}>Lock Signups</button>
           ) : (
-            <button className="btn btn-primary" onClick={handleOpen}>
-              Unlock Signups ({weekKeyFromDate()})
+            <button className="btn btn-primary" onClick={handleLockToggle}>
+              Unlock Signups
             </button>
           )}
+          <button className="btn btn-secondary" onClick={handleCloseWeek}>Close Week</button>
+          <button className="btn btn-warning" onClick={handleOpenNextWeek}>Open Next Week</button>
         </div>
       </div>
 

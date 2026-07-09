@@ -1,9 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useLeague } from './contexts/LeagueContext'
 import {
   addSignupToWeek,
-  getCurrentWeekKey,
-  getWeek,
   removePlayerFromHole,
   movePlayerBetweenHoles,
   weekKeyToLabel,
@@ -170,12 +168,17 @@ function PlayerAutocomplete({ value, onChange, onSelect, suggestions, placeholde
   )
 }
 
-export default function SignupForm({ players, onSignedUp }) {
+export default function SignupForm({ players, weekKey: propWeekKey, week: propWeek, onSignedUp }) {
   const league = useLeague()
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [hole, setHole] = useState('AUTO')
-  const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
+  const [additionalPlayers, setAdditionalPlayers] = useState([
+    { name: '', email: '', phone: '' },
+    { name: '', email: '', phone: '' },
+    { name: '', email: '', phone: '' },
+  ])
   const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
@@ -189,26 +192,28 @@ export default function SignupForm({ players, onSignedUp }) {
   const [holes, setHoles] = useState({})
 
   // Define hole keys early so they can be used in useEffect
-  const holeKeys = Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1))
-  const bHoleKeys = Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`)
+  // Memoize to ensure they're stable across renders (never changes since HOLE_COUNT is constant)
+  const holeKeys = useMemo(() => Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1)), [])
+  const bHoleKeys = useMemo(() => Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`), [])
 
-  // Fetch current week and populate holes display on mount/refresh
+  // Fetch current week and populate holes display
+  // Initialize from props passed by App
   useEffect(() => {
-    async function loadWeek() {
-      try {
-        setLoading(true)
-        const key = await getCurrentWeekKey()
-        setWeekKey(key)
-        if (key) {
-          const w = await getWeek(key)
-          setWeek(w)
-          
-          // Fetch players and populate holes display
+    setLoading(false)
+    setWeekKey(propWeekKey)
+    setWeek(propWeek)
+    
+    // Initialize holes display from the current week's players
+    // Note: This data comes from App's weekly_players fetch and real-time subscriptions
+    if (propWeekKey) {
+      async function loadHoles() {
+        try {
+          if (!league?.id) return
           const { data: weeklyPlayers, error } = await supabase
             .from('weekly_players')
-            .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
-            .eq('league_id', league?.id)
-            .eq('week_number', key)
+            .select('id, player_name, player_email, hole_number, hole_group')
+            .eq('league_id', league.id)
+            .eq('week_number', propWeekKey)
           
           if (!error && weeklyPlayers) {
             const holesMap = Object.fromEntries(
@@ -222,25 +227,18 @@ export default function SignupForm({ players, onSignedUp }) {
                   id: row.id,
                   name: row.player_name,
                   email: row.player_email,
-                  isPrimary: !row.is_guest,
                 })
               }
             }
             setHoles(holesMap)
           }
-        } else {
-          setWeek(null)
+        } catch (err) {
+          console.error('Error loading holes:', err)
         }
-      } catch (err) {
-        console.error('Error loading week:', err)
-        setWeekKey(null)
-        setWeek(null)
-      } finally {
-        setLoading(false)
       }
+      loadHoles()
     }
-    loadWeek()
-  }, [])
+  }, [propWeekKey, propWeek, league?.id])
 
   // Real-time subscription to weekly_players changes
   useEffect(() => {
@@ -274,7 +272,8 @@ export default function SignupForm({ players, onSignedUp }) {
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   // Derived state from week data
-  const isClosed   = !weekKey || (week && week.closedAt)
+  const isWeekLocked   = weekKey && week && week.closed_at
+  const isWeekFinalized = !weekKey  // No current week means it was finalized
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
   const bUnlocked = week?.b_groups_unlocked || false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
@@ -318,7 +317,7 @@ export default function SignupForm({ players, onSignedUp }) {
       if (!weekKey || !league?.id) return
       const { data: weeklyPlayers, error } = await supabase
         .from('weekly_players')
-        .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+        .select('id, player_name, player_email, hole_number, hole_group')
         .eq('league_id', league.id)
         .eq('week_number', weekKey)
       
@@ -333,7 +332,6 @@ export default function SignupForm({ players, onSignedUp }) {
               id: row.id,
               name: row.player_name,
               email: row.player_email,
-              isPrimary: !row.is_guest,
             })
           }
         }
@@ -344,14 +342,39 @@ export default function SignupForm({ players, onSignedUp }) {
     }
   }
 
+  // Format phone number as (XXX) XXX-XXXX as user types
+  function formatPhoneNumber(value) {
+    const digits = value.replace(/\D/g, '').slice(0, 10)
+    if (digits.length === 0) return ''
+    if (digits.length <= 3) return digits
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+
+  // Validate phone number is 10 digits
+  function isValidPhoneNumber(phoneStr) {
+    const digits = phoneStr.replace(/\D/g, '')
+    return digits.length === 10
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!name.trim() || !email.trim()) {
+    if (!name.trim() || !email.trim() || !phone.trim()) {
       showError(
         'Missing Information',
-        'Please fill in both your full name and email address before signing up.',
+        'Please fill in your name, email address, and phone number before signing up.',
         'Your name must be at least a first and last name (e.g., "Jane Smith").',
+      )
+      return
+    }
+
+    // Validate phone number
+    if (!isValidPhoneNumber(phone)) {
+      showError(
+        'Invalid Phone Number',
+        'Please enter a valid 10-digit phone number.',
+        'Phone number should be in the format (123) 456-7890 or 1234567890.',
       )
       return
     }
@@ -366,39 +389,86 @@ export default function SignupForm({ players, onSignedUp }) {
       return
     }
 
-    const activePlayers = additionalPlayers.slice(0, additionalCount).map(p => p.trim()).filter(Boolean)
+    const activePlayers = additionalPlayers.slice(0, additionalCount).filter(p => p.name.trim())
 
-    // Check for duplicate names among additional players and vs. the primary
-    const primaryNorm = name.trim().toLowerCase().replace(/\s+/g, ' ')
-    const seenNames = new Set([primaryNorm])
+    // Validate each additional player
     for (let i = 0; i < activePlayers.length; i++) {
       const p = activePlayers[i]
-      if (!isFullName(p)) {
+      
+      if (!p.name.trim()) {
+        showError(
+          'Missing Information',
+          `Additional Player ${i + 1} — Name is required.`,
+          'Each additional player must have a name.',
+        )
+        return
+      }
+      
+      if (!p.email.trim()) {
+        showError(
+          'Missing Information',
+          `Additional Player ${i + 1} — Email is required.`,
+          'Each additional player must have an email address.',
+        )
+        return
+      }
+      
+      if (!p.phone.trim()) {
+        showError(
+          'Missing Information',
+          `Additional Player ${i + 1} — Phone number is required.`,
+          'Each additional player must have a phone number.',
+        )
+        return
+      }
+      
+      if (!isFullName(p.name)) {
         showError(
           'Full Name Required',
-          `Additional Player ${i + 1} — "${p}" doesn't look like a full name.`,
+          `Additional Player ${i + 1} — "${p.name}" doesn't look like a full name.`,
           'Each additional player must have a first and last name (e.g., "John Smith").',
         )
         return
       }
-      const norm = p.toLowerCase().replace(/\s+/g, ' ')
-      if (seenNames.has(norm)) {
-        const isDup = norm === primaryNorm
-          ? `"${p}" is the same as the primary player name.`
-          : `"${p}" appears more than once in the additional players list.`
+      
+      if (!isValidPhoneNumber(p.phone)) {
+        showError(
+          'Invalid Phone Number',
+          `Additional Player ${i + 1} — Please enter a valid 10-digit phone number.`,
+          'Phone number should be in the format (123) 456-7890 or 1234567890.',
+        )
+        return
+      }
+
+      // Check for duplicate names among additional players and vs. the primary
+      const primaryNorm = name.trim().toLowerCase().replace(/\s+/g, ' ')
+      const norm = p.name.toLowerCase().replace(/\s+/g, ' ')
+      
+      if (norm === primaryNorm) {
         showError(
           'Duplicate Player Name',
-          `Additional Player ${i + 1} — ${isDup}`,
+          `Additional Player ${i + 1} — "${p.name}" is the same as the primary player name.`,
           'Each player in the group must have a unique name.',
         )
         return
       }
-      seenNames.add(norm)
+      
+      // Check for duplicates within additional players
+      const seenNamesInAdditional = new Set(activePlayers.slice(0, i).map(ap => ap.name.toLowerCase().replace(/\s+/g, ' ')))
+      if (seenNamesInAdditional.has(norm)) {
+        showError(
+          'Duplicate Player Name',
+          `Additional Player ${i + 1} — "${p.name}" appears more than once in the additional players list.`,
+          'Each player in the group must have a unique name.',
+        )
+        return
+      }
     }
 
     const result = await addSignupToWeek({
       name,
       email,
+      phone,
       hole,
       additionalPlayers: additionalPlayers.slice(0, additionalCount),
     })
@@ -410,8 +480,13 @@ export default function SignupForm({ players, onSignedUp }) {
       setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You have been added to ${holeDisplay}${withFriends}.` })
       setName('')
       setEmail('')
+      setPhone('')
       setHole('AUTO')
-      setAdditionalPlayers(['', '', ''])
+      setAdditionalPlayers([
+        { name: '', email: '', phone: '' },
+        { name: '', email: '', phone: '' },
+        { name: '', email: '', phone: '' },
+      ])
       setAdditionalCount(0)
       await reloadHoles()
       if (onSignedUp) await onSignedUp()
@@ -451,10 +526,11 @@ export default function SignupForm({ players, onSignedUp }) {
     }
   }
 
-  function updateAdditionalPlayer(index, value) {
+  function updateAdditionalPlayer(index, field, value) {
     setAdditionalPlayers(prev => {
       const next = [...prev]
-      next[index] = value
+      if (!next[index]) next[index] = { name: '', email: '', phone: '' }
+      next[index] = { ...next[index], [field]: value }
       return next
     })
   }
@@ -466,7 +542,7 @@ export default function SignupForm({ players, onSignedUp }) {
   function removeAdditionalPlayerField(index) {
     setAdditionalPlayers(prev => {
       const next = [...prev]
-      next[index] = ''
+      next[index] = { name: '', email: '', phone: '' }
       return next
     })
     setAdditionalCount(count => Math.max(0, count - 1))
@@ -627,7 +703,7 @@ export default function SignupForm({ players, onSignedUp }) {
                       checked={bulkMove.selectedPlayerIds.has(player.id)}
                       onChange={() => togglePlayerSelection(player.id)}
                     />
-                    <span className="player-name">{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                    <span className="player-name">{player.name}</span>
                   </label>
                 ))}
               </div>
@@ -670,18 +746,26 @@ export default function SignupForm({ players, onSignedUp }) {
         <div className="closed-notice">
           <p className="week-closed-notice">⏳ Loading signup information...</p>
         </div>
-      ) : isClosed ? (
-        <div className="closed-notice">
-          <p className="week-closed-notice">🔒 Signups are currently closed.</p>
-          <p className="reopen-notice">An administrator must unlock signups before players can register.</p>
-        </div>
       ) : (
         <>
-          <p className="week-open-notice">
-            Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
-            {roundDateLabel ? <> ({roundDateLabel})</> : null}
-          </p>
-          <form onSubmit={handleSubmit} className="signup-form">
+          {isWeekFinalized ? (
+            <div className="closed-notice">
+              <p className="week-closed-notice">✅ Previous week signups are closed.</p>
+              <p className="reopen-notice">The next week's signups are not yet open. Check back soon!</p>
+            </div>
+          ) : isWeekLocked ? (
+            <div className="closed-notice">
+              <p className="week-closed-notice">🔒 Signups are currently locked.</p>
+              <p className="reopen-notice">New players cannot register, but you can still move or remove existing players below.</p>
+            </div>
+          ) : (
+            <p className="week-open-notice">
+              Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
+              {roundDateLabel ? <> ({roundDateLabel})</> : null}
+            </p>
+          )}
+          {!isWeekLocked && !isWeekFinalized && (
+            <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
               <PlayerAutocomplete
                 placeholder="First Last (e.g., Jane Smith)"
@@ -691,13 +775,23 @@ export default function SignupForm({ players, onSignedUp }) {
                 suggestions={playerSuggestions}
                 required
               />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setMsg(null) }}
-                required
-              />
+              <div className="form-row">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setMsg(null) }}
+                  required
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone (10 digits)"
+                  value={phone}
+                  onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
+                  maxLength="14"
+                  required
+                />
+              </div>
               <select
                 value={hole}
                 onChange={e => { setHole(e.target.value); setMsg(null) }}
@@ -746,22 +840,44 @@ export default function SignupForm({ players, onSignedUp }) {
                 <p className="muted">Optional grouped players</p>
               </div>
               {Array.from({ length: additionalCount }, (_, i) => (
-                <div key={i} className="additional-player-row">
+                <div key={i} className="additional-player-block" style={{ marginTop: '12px' }}>
+                  <div className="additional-player-header" style={{ marginBottom: '8px' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px' }}>Additional Player {i + 1}</h4>
+                    <button
+                      type="button"
+                      className="btn-remove-player"
+                      onClick={() => removeAdditionalPlayerField(i)}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                   <PlayerAutocomplete
-                    placeholder={`Additional Player ${i + 1} (First Last)`}
-                    value={additionalPlayers[i]}
-                    onChange={v => updateAdditionalPlayer(i, v)}
-                    onSelect={s => updateAdditionalPlayer(i, s.name)}
+                    placeholder={`First Last (e.g., Jane Smith)`}
+                    value={additionalPlayers[i].name}
+                    onChange={v => updateAdditionalPlayer(i, 'name', v)}
+                    onSelect={s => { 
+                      updateAdditionalPlayer(i, 'name', s.name)
+                      updateAdditionalPlayer(i, 'email', s.email)
+                    }}
                     suggestions={playerSuggestions}
                     inputClass="ac-additional"
                   />
-                  <button
-                    type="button"
-                    className="btn-remove-player"
-                    onClick={() => removeAdditionalPlayerField(i)}
-                  >
-                    Remove
-                  </button>
+                  <div className="form-row">
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={additionalPlayers[i].email}
+                      onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone (10 digits)"
+                      value={additionalPlayers[i].phone}
+                      onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
+                      maxLength="14"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -770,6 +886,7 @@ export default function SignupForm({ players, onSignedUp }) {
               <span className="signup-player-count">{totalAllPlayers} player{totalAllPlayers !== 1 ? 's' : ''} signed up</span>
             </div>
           </form>
+          )}
           {msg && <p className={`form-msg form-msg--${msg.type}`}>{msg.text}</p>}
           <div className="holes-grid">
             {holeKeys.map(holeKey => (
@@ -804,7 +921,7 @@ export default function SignupForm({ players, onSignedUp }) {
                         draggable
                         onDragStart={e => handleDragStart(e, holeKey, player.id)}
                       >
-                        <span>{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                        <span>{player.name}</span>
                         <button
                           type="button"
                           className="btn-remove-player"
@@ -860,7 +977,7 @@ export default function SignupForm({ players, onSignedUp }) {
                             draggable
                             onDragStart={e => handleDragStart(e, holeKey, player.id)}
                           >
-                            <span>{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                            <span>{player.name}</span>
                             <button
                               type="button"
                               className="btn-remove-player"
