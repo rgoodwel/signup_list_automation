@@ -173,6 +173,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [isPlayerRecognized, setIsPlayerRecognized] = useState(false) // Track if player selected from database
   const [hole, setHole] = useState('AUTO')
   const [additionalPlayers, setAdditionalPlayers] = useState([
     { name: '', email: '', phone: '' },
@@ -770,8 +771,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
               <PlayerAutocomplete
                 placeholder="First Last (e.g., Jane Smith)"
                 value={name}
-                onChange={v => { setName(v); setMsg(null) }}
-                onSelect={s => { setName(s.name); setEmail(s.email); setMsg(null) }}
+                onChange={v => { setName(v); setIsPlayerRecognized(false); setMsg(null) }}
+                onSelect={s => { setName(s.name); setEmail(s.email); setIsPlayerRecognized(true); setMsg(null) }}
                 suggestions={playerSuggestions}
                 required
               />
@@ -781,6 +782,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   placeholder="Email"
                   value={email}
                   onChange={e => { setEmail(e.target.value); setMsg(null) }}
+                  disabled={isPlayerRecognized}
+                  title={isPlayerRecognized ? "Player recognized - email is read-only" : ""}
                   required
                 />
                 <input
@@ -789,6 +792,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   value={phone}
                   onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
                   maxLength="14"
+                  disabled={isPlayerRecognized}
+                  title={isPlayerRecognized ? "Player recognized - phone is read-only" : ""}
                   required
                 />
               </div>
