@@ -467,19 +467,25 @@ export async function getPlayers() {
     
     if (error) throw error
     
+    console.log('[getPlayers] Raw data from database:', data)
+    
     const players = {}
     const seen = new Set()
     for (const row of (data || [])) {
+      console.log('[getPlayers] Processing row:', row)
       const email = row.player_email?.trim().toLowerCase()
       if (email && !seen.has(email)) {
-        players[email] = { 
+        const playerObj = { 
           email,
           name: row.player_name || email,
           phone: row.player_phone || ''
         }
+        console.log('[getPlayers] Created player object:', playerObj)
+        players[email] = playerObj
         seen.add(email)
       }
     }
+    console.log('[getPlayers] Final players object:', players)
     return players
   } catch (err) {
     console.error('Error getting players:', err)

@@ -269,7 +269,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
-    .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '' }))
+    .map(p => ({ name: p?.name || p?.email || '', email: p?.email || '', phone: p?.phone || '' }))
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   // Derived state from week data
