@@ -181,6 +181,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     { name: '', email: '', phone: '' },
   ])
   const [additionalCount, setAdditionalCount] = useState(0)
+  const [additionalPlayersRecognized, setAdditionalPlayersRecognized] = useState([false, false, false]) // Track which additional players are from database
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
   const [removal, setRemoval] = useState(null)
@@ -418,7 +419,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      if (!p.email.trim()) {
+      // Skip email check if player was recognized from database
+      const additionalIsRecognized = additionalPlayersRecognized[i] || false
+      if (!additionalIsRecognized && !p.email.trim()) {
         showError(
           'Missing Information',
           `Additional Player ${i + 1} — Email is required.`,
@@ -427,7 +430,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      if (!p.phone.trim()) {
+      // Skip phone check if player was recognized from database
+      if (!additionalIsRecognized && !p.phone.trim()) {
         showError(
           'Missing Information',
           `Additional Player ${i + 1} — Phone number is required.`,
@@ -445,7 +449,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      if (!isValidPhoneNumber(p.phone)) {
+      // Skip phone validation if player was recognized from database
+      if (!additionalIsRecognized && !isValidPhoneNumber(p.phone)) {
         showError(
           'Invalid Phone Number',
           `Additional Player ${i + 1} — Please enter a valid 10-digit phone number.`,
@@ -557,6 +562,11 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     setAdditionalPlayers(prev => {
       const next = [...prev]
       next[index] = { name: '', email: '', phone: '' }
+      return next
+    })
+    setAdditionalPlayersRecognized(prev => {
+      const next = [...prev]
+      next[index] = false
       return next
     })
     setAdditionalCount(count => Math.max(0, count - 1))
@@ -886,30 +896,52 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   <PlayerAutocomplete
                     placeholder={`First Last (e.g., Jane Smith)`}
                     value={additionalPlayers[i].name}
-                    onChange={v => { updateAdditionalPlayer(i, 'name', v); updateAdditionalPlayer(i, 'email', ''); updateAdditionalPlayer(i, 'phone', '') }}
+                    onChange={v => { 
+                      updateAdditionalPlayer(i, 'name', v); 
+                      updateAdditionalPlayer(i, 'email', ''); 
+                      updateAdditionalPlayer(i, 'phone', '');
+                      setAdditionalPlayersRecognized(prev => {
+                        const next = [...prev]
+                        next[i] = false
+                        return next
+                      })
+                    }}
                     onSelect={s => { 
+                      console.log('[AdditionalPlayer.onSelect]', i, 'Player selected:', s)
                       updateAdditionalPlayer(i, 'name', s.name)
                       updateAdditionalPlayer(i, 'email', s.email)
                       updateAdditionalPlayer(i, 'phone', formatPhoneNumber(s.phone || ''))
+                      setAdditionalPlayersRecognized(prev => {
+                        const next = [...prev]
+                        next[i] = true
+                        return next
+                      })
                     }}
                     suggestions={playerSuggestions}
                     inputClass="ac-additional"
                   />
-                  <div className="form-row">
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      value={additionalPlayers[i].email}
-                      onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
-                    />
-                    <input
-                      type="tel"
-                      placeholder="Phone (10 digits)"
-                      value={additionalPlayers[i].phone}
-                      onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
-                      maxLength="14"
-                    />
-                  </div>
+                  {!additionalPlayersRecognized[i] && (
+                    <div className="form-row">
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={additionalPlayers[i].email}
+                        onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone (10 digits)"
+                        value={additionalPlayers[i].phone}
+                        onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
+                        maxLength="14"
+                      />
+                    </div>
+                  )}
+                  {additionalPlayersRecognized[i] && (
+                    <div className="form-row" style={{ color: '#666', fontSize: '0.9em', padding: '8px 0' }}>
+                      Player recognized ✓
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
