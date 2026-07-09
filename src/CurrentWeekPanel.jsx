@@ -102,9 +102,14 @@ export default function CurrentWeekPanel({ onRefresh }) {
   }
 
   async function handleOpenNextWeek() {
-    const nextWeek = getNextWeekKey(weekKey)
-    if (!confirm(`Open ${weekKeyToLabel(nextWeek)}?`)) return
     try {
+      const nextWeek = getNextWeekKey(weekKey)  // Now handles null safely
+      if (!nextWeek) {
+        console.error('Could not determine next week')
+        return
+      }
+      if (!confirm(`Open ${weekKeyToLabel(nextWeek)}?`)) return
+      
       await openWeek(nextWeek)
       // Immediately refresh to the new week state
       const newWeekKey = await getCurrentWeekKey()

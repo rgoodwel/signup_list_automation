@@ -118,6 +118,10 @@ export function compareWeekKeys(a, b) {
 }
 
 export function getNextWeekKey(weekKey) {
+  if (!weekKey) {
+    // If no weekKey provided, use current date
+    return weekKeyFromDate()
+  }
   const [year, w] = weekKey.split('-W')
   const weekNum = parseInt(w, 10)
   const nextWeekNum = weekNum + 1
