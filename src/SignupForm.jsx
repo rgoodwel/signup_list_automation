@@ -815,7 +815,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
             <form onSubmit={handleSubmit} className="signup-form">
             <div className="form">
               <PlayerAutocomplete
-                placeholder="First Last (e.g., Jane Smith)"
+                placeholder="First & Last Name (e.g., Jane Smith)"
                 value={name}
                 onChange={v => { setName(v); setIsPlayerRecognized(false); setEmail(''); setPhone(''); setMsg(null) }}
                 onSelect={s => { 
@@ -843,7 +843,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   />
                   <input
                     type="tel"
-                    placeholder="Phone (10 digits)"
+                    placeholder="Phone Number (10 digits)"
                     value={phone}
                     onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
                     maxLength="14"
@@ -917,7 +917,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                     </button>
                   </div>
                   <PlayerAutocomplete
-                    placeholder={`First Last (e.g., Jane Smith)`}
+                    placeholder={`First & Last Name (e.g., Jane Smith)`}
                     value={additionalPlayers[i].name}
                     onChange={v => { 
                       updateAdditionalPlayer(i, 'name', v); 
@@ -953,7 +953,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                       />
                       <input
                         type="tel"
-                        placeholder="Phone (10 digits)"
+                        placeholder="Phone Number (10 digits)"
                         value={additionalPlayers[i].phone}
                         onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
                         maxLength="14"
