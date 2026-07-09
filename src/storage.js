@@ -418,7 +418,6 @@ export async function getPlayers() {
       .select('player_email, player_name')
       .eq('league_id', currentLeagueId)
       .not('player_email', 'is', null)
-      .eq('is_guest', false)
     
     if (error) throw error
     
@@ -506,7 +505,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
       .eq('player_email', emailKey)
-      .eq('is_guest', false)
       .single()
     
     if (existing) {
@@ -668,7 +666,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         hole_number: holeNumber,
         hole_group: holeGroup,
         signup_id: signupId,
-        is_guest: false,
         primary_player_email: emailKey,
       })
     
@@ -700,7 +697,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
           hole_number: holeNumber,
           hole_group: holeGroup,
           signup_id: signupId,
-          is_guest: true,
           primary_player_email: emailKey,
         })
       
@@ -709,10 +705,10 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         throw guestError
       }
       
-      // Log the guest signup
+      // Log the signup
       await logAuditEvent(weekKey, 'CREATE', guest.name.trim(), guest.email.trim().toLowerCase(), holeNumber, holeGroup, {
-        type: 'guest',
-        primaryPlayer: emailKey,
+        type: 'player',
+        groupInitiator: emailKey,
       })
       console.log(`DEBUG: Guest ${i + 1} inserted successfully`)
     }

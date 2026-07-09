@@ -324,7 +324,7 @@ export default function SignupForm({ players, onSignedUp }) {
       if (!weekKey || !league?.id) return
       const { data: weeklyPlayers, error } = await supabase
         .from('weekly_players')
-        .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+        .select('id, player_name, player_email, hole_number, hole_group, primary_player_email')
         .eq('league_id', league.id)
         .eq('week_number', weekKey)
       
@@ -339,7 +339,6 @@ export default function SignupForm({ players, onSignedUp }) {
               id: row.id,
               name: row.player_name,
               email: row.player_email,
-              isPrimary: !row.is_guest,
             })
           }
         }
@@ -711,7 +710,7 @@ export default function SignupForm({ players, onSignedUp }) {
                       checked={bulkMove.selectedPlayerIds.has(player.id)}
                       onChange={() => togglePlayerSelection(player.id)}
                     />
-                    <span className="player-name">{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                    <span className="player-name">{player.name}</span>
                   </label>
                 ))}
               </div>
@@ -929,7 +928,7 @@ export default function SignupForm({ players, onSignedUp }) {
                         draggable
                         onDragStart={e => handleDragStart(e, holeKey, player.id)}
                       >
-                        <span>{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                        <span>{player.name}</span>
                         <button
                           type="button"
                           className="btn-remove-player"
@@ -985,7 +984,7 @@ export default function SignupForm({ players, onSignedUp }) {
                             draggable
                             onDragStart={e => handleDragStart(e, holeKey, player.id)}
                           >
-                            <span>{player.name}{player.isPrimary ? '' : ' (guest)'}</span>
+                            <span>{player.name}</span>
                             <button
                               type="button"
                               className="btn-remove-player"
