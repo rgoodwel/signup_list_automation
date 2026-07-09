@@ -27,6 +27,9 @@ export default function App() {
   }, [league?.id])
 
   useEffect(() => {
+    // Only initialize and refresh after league is set
+    if (!league?.id) return
+    
     let active = true
     ;(async () => {
       await initializeStorage()
@@ -35,7 +38,7 @@ export default function App() {
       if (active) setReady(true)
     })()
     return () => { active = false }
-  }, [refresh])
+  }, [league?.id, refresh])
 
   if (!ready) {
     return (
