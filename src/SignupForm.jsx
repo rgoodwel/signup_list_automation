@@ -540,7 +540,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
 
       if (reason.includes("already signed up")) {
         title = 'Already Signed Up'
-        hint = 'You can only sign up once per week. If you need to change your hole or group, contact an administrator.'
+        hint = 'You can only sign up once per week. If you need to change your hole or group, use the icon on the hole cards or drag an drop players.'
       } else if (reason.includes("Group B holes are not yet available")) {
         title = 'Group B Not Available'
         hint = `Group B holes unlock once ${B_GROUP_THRESHOLD} players have signed up. Please choose a Group A hole.`
@@ -611,7 +611,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       await reloadHoles()
       if (onSignedUp) await onSignedUp()
     } else {
-      showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact an administrator.')
+      showError('Could Not Remove Player', result.reason, 'Try refreshing the page. If the problem persists, contact your league manager.')
     }
   }
 
