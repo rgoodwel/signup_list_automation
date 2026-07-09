@@ -174,6 +174,7 @@ export default function SignupForm({ players, onSignedUp }) {
   const league = useLeague()
   const [name, setName]   = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [hole, setHole] = useState('AUTO')
   const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
   const [additionalCount, setAdditionalCount] = useState(0)
@@ -345,14 +346,39 @@ export default function SignupForm({ players, onSignedUp }) {
     }
   }
 
+  // Format phone number as (XXX) XXX-XXXX as user types
+  function formatPhoneNumber(value) {
+    const digits = value.replace(/\D/g, '').slice(0, 10)
+    if (digits.length === 0) return ''
+    if (digits.length <= 3) return digits
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+
+  // Validate phone number is 10 digits
+  function isValidPhoneNumber(phoneStr) {
+    const digits = phoneStr.replace(/\D/g, '')
+    return digits.length === 10
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!name.trim() || !email.trim()) {
+    if (!name.trim() || !email.trim() || !phone.trim()) {
       showError(
         'Missing Information',
-        'Please fill in both your full name and email address before signing up.',
+        'Please fill in your name, email address, and phone number before signing up.',
         'Your name must be at least a first and last name (e.g., "Jane Smith").',
+      )
+      return
+    }
+
+    // Validate phone number
+    if (!isValidPhoneNumber(phone)) {
+      showError(
+        'Invalid Phone Number',
+        'Please enter a valid 10-digit phone number.',
+        'Phone number should be in the format (123) 456-7890 or 1234567890.',
       )
       return
     }
@@ -411,6 +437,7 @@ export default function SignupForm({ players, onSignedUp }) {
       setMsg({ type: 'success', text: `Thanks, ${name.trim()}! You have been added to ${holeDisplay}${withFriends}.` })
       setName('')
       setEmail('')
+      setPhone('')
       setHole('AUTO')
       setAdditionalPlayers(['', '', ''])
       setAdditionalCount(0)
@@ -700,13 +727,23 @@ export default function SignupForm({ players, onSignedUp }) {
                 suggestions={playerSuggestions}
                 required
               />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setMsg(null) }}
-                required
-              />
+              <div className="form-row">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setMsg(null) }}
+                  required
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone (10 digits)"
+                  value={phone}
+                  onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
+                  maxLength="14"
+                  required
+                />
+              </div>
               <select
                 value={hole}
                 onChange={e => { setHole(e.target.value); setMsg(null) }}
