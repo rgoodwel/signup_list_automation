@@ -538,34 +538,47 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
     }
 
     const extras = additionalPlayers
-      .map(p => p.trim())
-      .filter(Boolean)
+      .filter(p => p && p.name && p.name.trim())
       .slice(0, 3)
     
     // Validate all additional players
     for (const extra of extras) {
-      if (!isFullName(extra)) {
+      if (!isFullName(extra.name)) {
         return {
           ok: false,
-          reason: `"${extra}" — additional player names must include a first and last name (e.g., "John Smith").`,
+          reason: `"${extra.name}" — additional player names must include a first and last name (e.g., "John Smith").`,
+        }
+      }
+      
+      if (!extra.email || !extra.email.trim()) {
+        return {
+          ok: false,
+          reason: `"${extra.name}" — email address is required for all additional players.`,
+        }
+      }
+      
+      if (!extra.phone || !extra.phone.trim()) {
+        return {
+          ok: false,
+          reason: `"${extra.name}" — phone number is required for all additional players.`,
         }
       }
     }
     
     // Check for duplicate guest names in the same week (league-specific)
-    for (const guestName of extras) {
+    for (const guest of extras) {
       const { data: existing } = await supabase
         .from('weekly_players')
         .select('id')
         .eq('league_id', currentLeagueId)
         .eq('week_number', weekKey)
-        .ilike('player_name', guestName.trim())
+        .ilike('player_name', guest.name.trim())
         .single()
       
       if (existing) {
         return {
           ok: false,
-          reason: `"${guestName}" is already signed up for this week. Each player can only appear once.`,
+          reason: `"${guest.name}" is already signed up for this week. Each player can only appear once.`,
         }
       }
     }
@@ -673,16 +686,17 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
     console.log('DEBUG: Primary player inserted, extras count:', extras.length)
 
     for (let i = 0; i < extras.length; i++) {
-      const guestName = extras[i]
-      console.log(`DEBUG: Inserting guest ${i + 1}/${extras.length}:`, guestName)
+      const guest = extras[i]
+      console.log(`DEBUG: Inserting guest ${i + 1}/${extras.length}:`, guest.name)
       
       const { error: guestError } = await supabase
         .from('weekly_players')
         .insert({
           league_id: currentLeagueId,
           week_number: weekKey,
-          player_name: guestName.trim(),
-          player_email: null,
+          player_name: guest.name.trim(),
+          player_email: guest.email.trim().toLowerCase(),
+          player_phone: guest.phone ? guest.phone.replace(/\D/g, '') : null,
           hole_number: holeNumber,
           hole_group: holeGroup,
           signup_id: signupId,
@@ -696,7 +710,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       }
       
       // Log the guest signup
-      await logAuditEvent(weekKey, 'CREATE', guestName.trim(), null, holeNumber, holeGroup, {
+      await logAuditEvent(weekKey, 'CREATE', guest.name.trim(), guest.email.trim().toLowerCase(), holeNumber, holeGroup, {
         type: 'guest',
         primaryPlayer: emailKey,
       })

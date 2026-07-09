@@ -176,7 +176,11 @@ export default function SignupForm({ players, onSignedUp }) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [hole, setHole] = useState('AUTO')
-  const [additionalPlayers, setAdditionalPlayers] = useState(['', '', ''])
+  const [additionalPlayers, setAdditionalPlayers] = useState([
+    { name: '', email: '', phone: '' },
+    { name: '', email: '', phone: '' },
+    { name: '', email: '', phone: '' },
+  ])
   const [additionalCount, setAdditionalCount] = useState(0)
   const [msg, setMsg]     = useState(null)
   const [popup, setPopup] = useState(null)
@@ -393,34 +397,80 @@ export default function SignupForm({ players, onSignedUp }) {
       return
     }
 
-    const activePlayers = additionalPlayers.slice(0, additionalCount).map(p => p.trim()).filter(Boolean)
+    const activePlayers = additionalPlayers.slice(0, additionalCount).filter(p => p.name.trim())
 
-    // Check for duplicate names among additional players and vs. the primary
-    const primaryNorm = name.trim().toLowerCase().replace(/\s+/g, ' ')
-    const seenNames = new Set([primaryNorm])
+    // Validate each additional player
     for (let i = 0; i < activePlayers.length; i++) {
       const p = activePlayers[i]
-      if (!isFullName(p)) {
+      
+      if (!p.name.trim()) {
+        showError(
+          'Missing Information',
+          `Additional Player ${i + 1} — Name is required.`,
+          'Each additional player must have a name.',
+        )
+        return
+      }
+      
+      if (!p.email.trim()) {
+        showError(
+          'Missing Information',
+          `Additional Player ${i + 1} — Email is required.`,
+          'Each additional player must have an email address.',
+        )
+        return
+      }
+      
+      if (!p.phone.trim()) {
+        showError(
+          'Missing Information',
+          `Additional Player ${i + 1} — Phone number is required.`,
+          'Each additional player must have a phone number.',
+        )
+        return
+      }
+      
+      if (!isFullName(p.name)) {
         showError(
           'Full Name Required',
-          `Additional Player ${i + 1} — "${p}" doesn't look like a full name.`,
+          `Additional Player ${i + 1} — "${p.name}" doesn't look like a full name.`,
           'Each additional player must have a first and last name (e.g., "John Smith").',
         )
         return
       }
-      const norm = p.toLowerCase().replace(/\s+/g, ' ')
-      if (seenNames.has(norm)) {
-        const isDup = norm === primaryNorm
-          ? `"${p}" is the same as the primary player name.`
-          : `"${p}" appears more than once in the additional players list.`
+      
+      if (!isValidPhoneNumber(p.phone)) {
+        showError(
+          'Invalid Phone Number',
+          `Additional Player ${i + 1} — Please enter a valid 10-digit phone number.`,
+          'Phone number should be in the format (123) 456-7890 or 1234567890.',
+        )
+        return
+      }
+
+      // Check for duplicate names among additional players and vs. the primary
+      const primaryNorm = name.trim().toLowerCase().replace(/\s+/g, ' ')
+      const norm = p.name.toLowerCase().replace(/\s+/g, ' ')
+      
+      if (norm === primaryNorm) {
         showError(
           'Duplicate Player Name',
-          `Additional Player ${i + 1} — ${isDup}`,
+          `Additional Player ${i + 1} — "${p.name}" is the same as the primary player name.`,
           'Each player in the group must have a unique name.',
         )
         return
       }
-      seenNames.add(norm)
+      
+      // Check for duplicates within additional players
+      const seenNamesInAdditional = new Set(activePlayers.slice(0, i).map(ap => ap.name.toLowerCase().replace(/\s+/g, ' ')))
+      if (seenNamesInAdditional.has(norm)) {
+        showError(
+          'Duplicate Player Name',
+          `Additional Player ${i + 1} — "${p.name}" appears more than once in the additional players list.`,
+          'Each player in the group must have a unique name.',
+        )
+        return
+      }
     }
 
     const result = await addSignupToWeek({
@@ -440,7 +490,11 @@ export default function SignupForm({ players, onSignedUp }) {
       setEmail('')
       setPhone('')
       setHole('AUTO')
-      setAdditionalPlayers(['', '', ''])
+      setAdditionalPlayers([
+        { name: '', email: '', phone: '' },
+        { name: '', email: '', phone: '' },
+        { name: '', email: '', phone: '' },
+      ])
       setAdditionalCount(0)
       await reloadHoles()
       if (onSignedUp) await onSignedUp()
@@ -480,10 +534,11 @@ export default function SignupForm({ players, onSignedUp }) {
     }
   }
 
-  function updateAdditionalPlayer(index, value) {
+  function updateAdditionalPlayer(index, field, value) {
     setAdditionalPlayers(prev => {
       const next = [...prev]
-      next[index] = value
+      if (!next[index]) next[index] = { name: '', email: '', phone: '' }
+      next[index] = { ...next[index], [field]: value }
       return next
     })
   }
@@ -495,7 +550,7 @@ export default function SignupForm({ players, onSignedUp }) {
   function removeAdditionalPlayerField(index) {
     setAdditionalPlayers(prev => {
       const next = [...prev]
-      next[index] = ''
+      next[index] = { name: '', email: '', phone: '' }
       return next
     })
     setAdditionalCount(count => Math.max(0, count - 1))
@@ -793,22 +848,44 @@ export default function SignupForm({ players, onSignedUp }) {
                 <p className="muted">Optional grouped players</p>
               </div>
               {Array.from({ length: additionalCount }, (_, i) => (
-                <div key={i} className="additional-player-row">
+                <div key={i} className="additional-player-block" style={{ marginTop: '12px' }}>
+                  <div className="additional-player-header" style={{ marginBottom: '8px' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px' }}>Additional Player {i + 1}</h4>
+                    <button
+                      type="button"
+                      className="btn-remove-player"
+                      onClick={() => removeAdditionalPlayerField(i)}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                   <PlayerAutocomplete
-                    placeholder={`Additional Player ${i + 1} (First Last)`}
-                    value={additionalPlayers[i]}
-                    onChange={v => updateAdditionalPlayer(i, v)}
-                    onSelect={s => updateAdditionalPlayer(i, s.name)}
+                    placeholder={`First Last (e.g., Jane Smith)`}
+                    value={additionalPlayers[i].name}
+                    onChange={v => updateAdditionalPlayer(i, 'name', v)}
+                    onSelect={s => { 
+                      updateAdditionalPlayer(i, 'name', s.name)
+                      updateAdditionalPlayer(i, 'email', s.email)
+                    }}
                     suggestions={playerSuggestions}
                     inputClass="ac-additional"
                   />
-                  <button
-                    type="button"
-                    className="btn-remove-player"
-                    onClick={() => removeAdditionalPlayerField(i)}
-                  >
-                    Remove
-                  </button>
+                  <div className="form-row">
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={additionalPlayers[i].email}
+                      onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone (10 digits)"
+                      value={additionalPlayers[i].phone}
+                      onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
+                      maxLength="14"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
