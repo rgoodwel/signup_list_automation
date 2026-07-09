@@ -211,7 +211,7 @@ export default function SignupForm({ players, onSignedUp }) {
           // Fetch players and populate holes display
           const { data: weeklyPlayers, error } = await supabase
             .from('weekly_players')
-            .select('id, player_name, player_email, hole_number, hole_group, is_guest, primary_player_email')
+            .select('id, player_name, player_email, hole_number, hole_group, is_guest')
             .eq('league_id', league?.id)
             .eq('week_number', key)
           
@@ -324,7 +324,7 @@ export default function SignupForm({ players, onSignedUp }) {
       if (!weekKey || !league?.id) return
       const { data: weeklyPlayers, error } = await supabase
         .from('weekly_players')
-        .select('id, player_name, player_email, hole_number, hole_group, primary_player_email')
+        .select('id, player_name, player_email, hole_number, hole_group')
         .eq('league_id', league.id)
         .eq('week_number', weekKey)
       

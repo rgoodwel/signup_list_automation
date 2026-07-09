@@ -676,7 +676,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         hole_number: holeNumber,
         hole_group: holeGroup,
         signup_id: signupId,
-        primary_player_email: emailKey,
       })
     
     if (insertError) {
@@ -707,7 +706,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
           hole_number: holeNumber,
           hole_group: holeGroup,
           signup_id: signupId,
-          primary_player_email: emailKey,
         })
       
       if (guestError) {
