@@ -483,7 +483,7 @@ async function getHolePlayers(weekKey, holeNumber, holeGroup) {
   }
 }
 
-export async function addSignupToWeek({ name, email, hole, additionalPlayers = [] }) {
+export async function addSignupToWeek({ name, email, phone, hole, additionalPlayers = [] }) {
   if (!currentLeagueId) {
     return { ok: false, reason: 'No league selected. Please refresh and try again.' }
   }
@@ -651,6 +651,7 @@ export async function addSignupToWeek({ name, email, hole, additionalPlayers = [
         week_number: weekKey,
         player_name: name.trim(),
         player_email: emailKey,
+        player_phone: phone ? phone.replace(/\D/g, '') : null,
         hole_number: holeNumber,
         hole_group: holeGroup,
         signup_id: signupId,

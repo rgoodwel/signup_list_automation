@@ -426,6 +426,7 @@ export default function SignupForm({ players, onSignedUp }) {
     const result = await addSignupToWeek({
       name,
       email,
+      phone,
       hole,
       additionalPlayers: additionalPlayers.slice(0, additionalCount),
     })
