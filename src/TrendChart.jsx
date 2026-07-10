@@ -9,13 +9,18 @@ export default function TrendChart({ weeks, players }) {
   const totalWeeks   = Object.keys(weeks).filter(k => k !== 'legacy').length
 
   const chartData = useMemo(() => {
-    return Object.values(weeks)
-      .filter(w => w.weekKey !== 'legacy')
-      .sort((a, b) => compareWeekKeys(a.weekKey, b.weekKey))
-      .map(w => ({
-        label: weekKeyToLabel(w.weekKey),
-        signups: w.signups.length,
-      }))
+    try {
+      return Object.values(weeks)
+        .filter(w => w && w.week_key && w.week_key !== 'legacy')
+        .sort((a, b) => compareWeekKeys(a.week_key, b.week_key))
+        .map(w => ({
+          label: weekKeyToLabel(w.week_key),
+          signups: w.signups ? w.signups.length : 0,
+        }))
+    } catch (err) {
+      console.error('Error building chart data:', err)
+      return []
+    }
   }, [weeks])
 
   return (
