@@ -28,6 +28,7 @@ async function exportPlayerSummary(players, weeks) {
   ws.columns = [
     { header: 'Name',           key: 'name',          width: 24 },
     { header: 'Email',          key: 'email',         width: 30 },
+    { header: 'Phone',          key: 'phone',         width: 18 },
     { header: 'First Week',     key: 'firstWeek',     width: 18 },
     { header: 'Last Week',      key: 'lastWeek',      width: 18 },
     { header: 'Total Weeks',    key: 'totalWeeks',    width: 14 },
@@ -46,6 +47,7 @@ async function exportPlayerSummary(players, weeks) {
     ws.addRow({
       name:          p.name,
       email:         p.email,
+      phone:         p.phone,
       firstWeek:     weekKeyToLabel(stats.firstWeekKey),
       lastWeek:      weekKeyToLabel(stats.lastWeekKey),
       totalWeeks:    stats.totalWeeks,
