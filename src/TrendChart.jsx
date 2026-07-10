@@ -1,12 +1,47 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 import { weekKeyToLabel, compareWeekKeys } from './storage'
+import { supabase } from './utils/supabaseClient'
 
 export default function TrendChart({ weeks, players }) {
   const totalPlayers = Object.keys(players).length
   const totalWeeks   = Object.keys(weeks).filter(k => k !== 'legacy').length
+  const [signupCounts, setSignupCounts] = useState({})
+
+  // Fetch signup counts for all weeks
+  useEffect(() => {
+    async function fetchSignups() {
+      try {
+        const weekKeys = Object.keys(weeks).filter(k => k !== 'legacy')
+        if (weekKeys.length === 0) {
+          setSignupCounts({})
+          return
+        }
+
+        // Fetch all signups for these weeks
+        const { data, error } = await supabase
+          .from('weekly_players')
+          .select('week_number, id')
+          .in('week_number', weekKeys)
+
+        if (error) throw error
+
+        // Count signups by week
+        const counts = {}
+        for (const record of (data || [])) {
+          counts[record.week_number] = (counts[record.week_number] || 0) + 1
+        }
+        setSignupCounts(counts)
+      } catch (err) {
+        console.error('Error fetching signup counts:', err)
+        setSignupCounts({})
+      }
+    }
+
+    fetchSignups()
+  }, [weeks])
 
   const chartData = useMemo(() => {
     try {
@@ -15,13 +50,13 @@ export default function TrendChart({ weeks, players }) {
         .sort((a, b) => compareWeekKeys(a.week_key, b.week_key))
         .map(w => ({
           label: weekKeyToLabel(w.week_key),
-          signups: w.signups ? w.signups.length : 0,
+          signups: signupCounts[w.week_key] || 0,
         }))
     } catch (err) {
       console.error('Error building chart data:', err)
       return []
     }
-  }, [weeks])
+  }, [weeks, signupCounts])
 
   return (
     <div className="panel">
