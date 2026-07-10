@@ -947,11 +947,87 @@ export async function setAdminPin(pin) {
   }
 }
 
-export function computePlayerStats(player, allWeekKeys) {
+/**
+ * Fetches player participation data: which weeks each player signed up for
+ * Returns: { playerEmail: [weekKeys] }
+ */
+export async function getPlayerParticipation() {
+  try {
+    if (!currentLeagueId) return {}
+    
+    // Query weekly_players with join to weeks table for league filtering
+    const { data, error } = await supabase
+      .from('weekly_players')
+      .select('player_email, week_number, weeks(league_id)')
+      .not('player_email', 'is', null)
+    
+    if (error) throw error
+    
+    const participation = {}
+    for (const row of (data || [])) {
+      // Filter by current league
+      if (row.weeks?.league_id !== currentLeagueId) continue
+      
+      const email = row.player_email?.trim().toLowerCase()
+      if (email && row.week_number) {
+        if (!participation[email]) {
+          participation[email] = []
+        }
+        if (!participation[email].includes(row.week_number)) {
+          participation[email].push(row.week_number)
+        }
+      }
+    }
+    
+    console.log('[getPlayerParticipation] Built participation map:', participation)
+    return participation
+  } catch (err) {
+    console.error('Error getting player participation:', err)
+    return {}
+  }
+}
+
+/**
+ * Compute player statistics based on their participation history
+ * participation: { playerEmail: [weekKeys] } map from getPlayerParticipation()
+ * allWeekKeys: sorted array of all week keys
+ */
+export function computePlayerStats(player, allWeekKeys, participation = {}) {
+  const playerWeeks = participation[player.email] || []
+  
+  if (playerWeeks.length === 0) {
+    return {
+      firstWeekKey: null,
+      lastWeekKey: null,
+      totalWeeks: 0,
+      currentStreak: 0,
+    }
+  }
+  
+  // Sort player's weeks to get first and last
+  const sortedPlayerWeeks = [...playerWeeks].sort((a, b) => compareWeekKeys(a, b))
+  const firstWeekKey = sortedPlayerWeeks[0]
+  const lastWeekKey = sortedPlayerWeeks[sortedPlayerWeeks.length - 1]
+  const totalWeeks = playerWeeks.length
+  
+  // Calculate current streak (consecutive weeks from most recent)
+  const sortedAllWeeks = [...allWeekKeys].sort((a, b) => compareWeekKeys(a, b))
+  let currentStreak = 0
+  
+  // Start from most recent week and count backwards
+  for (let i = sortedAllWeeks.length - 1; i >= 0; i--) {
+    const weekKey = sortedAllWeeks[i]
+    if (playerWeeks.includes(weekKey)) {
+      currentStreak++
+    } else {
+      break // Stop at first week not participated
+    }
+  }
+  
   return {
-    firstWeekKey: null,
-    lastWeekKey: null,
-    totalWeeks: 0,
-    currentStreak: 0,
+    firstWeekKey,
+    lastWeekKey,
+    totalWeeks,
+    currentStreak,
   }
 }

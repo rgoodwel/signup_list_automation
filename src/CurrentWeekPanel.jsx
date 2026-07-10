@@ -150,28 +150,30 @@ export default function CurrentWeekPanel({ onRefresh }) {
           {weeklyPlayers.length === 0 ? (
             <p className="empty">No signups yet this week.</p>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Hole</th>
-                  <th>Signed Up At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weeklyPlayers.map((p, i) => (
-                  <tr key={p.id}>
-                    <td>{i + 1}</td>
-                    <td>{p.player_name}</td>
-                    <td>{p.player_email || '(guest)'}</td>
-                    <td>{p.hole_number}{p.hole_group === 'B' ? 'B' : ''}</td>
-                    <td>{new Date(p.signed_up_at).toLocaleString()}</td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Hole</th>
+                    <th>Signed Up At</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {weeklyPlayers.map((p, i) => (
+                    <tr key={p.id}>
+                      <td>{i + 1}</td>
+                      <td>{p.player_name}</td>
+                      <td>{p.player_email || '(guest)'}</td>
+                      <td>{p.hole_number}{p.hole_group === 'B' ? 'B' : ''}</td>
+                      <td>{new Date(p.signed_up_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       ) : (
