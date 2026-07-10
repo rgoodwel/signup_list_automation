@@ -103,10 +103,10 @@ export default function PlayerHistoryTable({ players, weeks }) {
                 <tr key={r.email}>
                   <td>{r.name}</td>
                   <td>{r.email}</td>
-                  <td>{weekKeyToLabel(r.firstWeekKey)}</td>
-                  <td>{weekKeyToLabel(r.lastWeekKey)}</td>
-                  <td>{r.totalWeeks}</td>
-                  <td>{r.currentStreak}</td>
+                  <td>{r.firstWeekKey ? weekKeyToLabel(r.firstWeekKey) : '-'}</td>
+                  <td>{r.lastWeekKey ? weekKeyToLabel(r.lastWeekKey) : '-'}</td>
+                  <td>{r.totalWeeks || 0}</td>
+                  <td>{r.currentStreak || 0}</td>
                 </tr>
               ))}
             </tbody>

@@ -955,23 +955,26 @@ export async function getPlayerParticipation() {
   try {
     if (!currentLeagueId) return {}
     
+    // Query weekly_players with join to weeks table for league filtering
     const { data, error } = await supabase
       .from('weekly_players')
-      .select('player_email, week_key')
-      .eq('league_id', currentLeagueId)
+      .select('player_email, week_number, weeks(league_id)')
       .not('player_email', 'is', null)
     
     if (error) throw error
     
     const participation = {}
     for (const row of (data || [])) {
+      // Filter by current league
+      if (row.weeks?.league_id !== currentLeagueId) continue
+      
       const email = row.player_email?.trim().toLowerCase()
-      if (email) {
+      if (email && row.week_number) {
         if (!participation[email]) {
           participation[email] = []
         }
-        if (!participation[email].includes(row.week_key)) {
-          participation[email].push(row.week_key)
+        if (!participation[email].includes(row.week_number)) {
+          participation[email].push(row.week_number)
         }
       }
     }
