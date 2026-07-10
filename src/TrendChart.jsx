@@ -4,8 +4,10 @@ import {
 } from 'recharts'
 import { weekKeyToLabel, compareWeekKeys } from './storage'
 import { supabase } from './utils/supabaseClient'
+import { useLeague } from './contexts/LeagueContext'
 
 export default function TrendChart({ weeks, players }) {
+  const league = useLeague()
   const totalPlayers = Object.keys(players).length
   const totalWeeks   = Object.keys(weeks).filter(k => k !== 'legacy').length
   const [signupCounts, setSignupCounts] = useState({})
@@ -14,16 +16,18 @@ export default function TrendChart({ weeks, players }) {
   useEffect(() => {
     async function fetchSignups() {
       try {
+        if (!league?.id) return
         const weekKeys = Object.keys(weeks).filter(k => k !== 'legacy')
         if (weekKeys.length === 0) {
           setSignupCounts({})
           return
         }
 
-        // Fetch all signups for these weeks
+        // Fetch all signups for these weeks (filtered by current league)
         const { data, error } = await supabase
           .from('weekly_players')
           .select('week_number, id')
+          .eq('league_id', league.id)
           .in('week_number', weekKeys)
 
         if (error) throw error
@@ -41,7 +45,7 @@ export default function TrendChart({ weeks, players }) {
     }
 
     fetchSignups()
-  }, [weeks])
+  }, [weeks, league?.id])
 
   const chartData = useMemo(() => {
     try {
