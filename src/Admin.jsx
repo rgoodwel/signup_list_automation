@@ -73,3 +73,4 @@ export default function AdminPanel({ profiles = {}, groups = [], onClose, onSave
     </div>
   )
 }
+
