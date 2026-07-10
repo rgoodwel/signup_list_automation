@@ -1,6 +1,6 @@
 import React from 'react'
 import ExcelJS from 'exceljs'
-import { weekKeyToLabel, compareWeekKeys, computePlayerStats } from './storage'
+import { weekKeyToLabel, compareWeekKeys, computePlayerStats, getPlayerParticipation } from './storage'
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -21,6 +21,7 @@ async function downloadWorkbook(wb, filename) {
 
 async function exportPlayerSummary(players, weeks) {
   const allWeekKeys = Object.keys(weeks)
+  const participation = await getPlayerParticipation()
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Player Summary')
 
@@ -41,7 +42,7 @@ async function exportPlayerSummary(players, weeks) {
   )
 
   for (const p of sorted) {
-    const stats = computePlayerStats(p, allWeekKeys)
+    const stats = computePlayerStats(p, allWeekKeys, participation)
     ws.addRow({
       name:          p.name,
       email:         p.email,
