@@ -807,8 +807,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
             </div>
           ) : (
             <p className="week-open-notice">
-              Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
-              {roundDateLabel ? <> ({roundDateLabel})</> : null}
+              Signing up for <strong>{roundDateLabel || weekKeyToLabel(weekKey)}</strong>
             </p>
           )}
           {!isWeekLocked && !isWeekFinalized && (
