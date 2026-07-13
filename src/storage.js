@@ -284,25 +284,14 @@ export async function ensureCurrentWeekExists() {
 export async function openWeek(weekKey) {
   try {
     if (!currentLeagueId) return weekKey
-    
-    // Close any previously open week for this league
-    const { data: previousWeeks, error: prevError } = await supabase
-      .from('weeks')
-      .select('id, week_key')
-      .eq('league_id', currentLeagueId)
-      .is('closed_at', null)
-    
-    if (prevError) {
-      console.error('Error fetching previous week:', prevError)
-      throw prevError
-    }
 
-    if (previousWeeks && previousWeeks.length > 0) {
-      const previousWeek = previousWeeks[0]
-      await supabase
-        .from('weeks')
-        .update({ closed_at: new Date().toISOString() })
-        .eq('id', previousWeek.id)
+    // Enforce: only one non-finalized week allowed at a time.
+    // The next week cannot be opened until the current one is closed/finalized.
+    const activeWeekKey = await getCurrentWeekKey()
+    if (activeWeekKey && activeWeekKey !== weekKey) {
+      throw new Error(
+        `Cannot open ${weekKey}: week ${activeWeekKey} must be closed/finalized first.`
+      )
     }
 
     // Check if this week already exists for this league
@@ -311,23 +300,23 @@ export async function openWeek(weekKey) {
       .select('id, week_key')
       .eq('league_id', currentLeagueId)
       .eq('week_key', weekKey)
-    
+
     if (existError) {
       console.error('Error checking existing week:', existError)
       throw existError
     }
 
     if (existingWeeks && existingWeeks.length > 0) {
-      // Week exists - update it (reopen it)
-      const existingWeek = existingWeeks[0]
+      // Week exists - reopen it (clear closed/finalized state)
       await supabase
         .from('weeks')
         .update({
           opened_at: new Date().toISOString(),
           closed_at: null,
+          finalized_at: null,
           b_groups_unlocked: false,
         })
-        .eq('id', existingWeek.id)
+        .eq('id', existingWeeks[0].id)
     } else {
       // Week doesn't exist - create it
       await supabase
@@ -344,6 +333,25 @@ export async function openWeek(weekKey) {
     return weekKey
   } catch (err) {
     console.error('Error opening week:', err)
+    throw err
+  }
+}
+
+/**
+ * Unlock (reopen signups for) a specific week without changing anything else.
+ * Only clears closed_at — does NOT create a new week or touch finalized_at.
+ */
+export async function unlockWeek(weekKey) {
+  try {
+    if (!currentLeagueId || !weekKey) return
+    const { error } = await supabase
+      .from('weeks')
+      .update({ closed_at: null })
+      .eq('league_id', currentLeagueId)
+      .eq('week_key', weekKey)
+    if (error) throw error
+  } catch (err) {
+    console.error('Error unlocking week:', err)
     throw err
   }
 }
