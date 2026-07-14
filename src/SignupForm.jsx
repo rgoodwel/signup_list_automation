@@ -944,7 +944,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   onClick={addAdditionalPlayerField}
                   disabled={additionalCount >= 3}
                 >
-                  Add Other Golfers to My Group
+                  Add Another Golfer
                 </button>
               </div>
             </div>
