@@ -1046,3 +1046,40 @@ export function computePlayerStats(player, allWeekKeys, participation = {}) {
     currentStreak,
   }
 }
+
+// ── League Settings (Read-only access to settings, write should go through Supabase UI) ──
+/**
+ * Fetch league settings from database
+ * Used internally to validate requirements for signups
+ */
+export async function getLeagueSettings(leagueId) {
+  try {
+    const { data, error } = await supabase
+      .from('leagues')
+      .select('day_of_week, description, requires_password, password, require_email, require_phone')
+      .eq('id', leagueId)
+      .single()
+
+    if (error) throw error
+
+    return {
+      dayOfWeek: data?.day_of_week || 'Monday',
+      description: data?.description,
+      requiresPassword: data?.requires_password || false,
+      password: data?.password,
+      requireEmail: data?.require_email !== false,
+      requirePhone: data?.require_phone !== false,
+    }
+  } catch (err) {
+    console.error('Error fetching league settings:', err)
+    // Return defaults if settings cannot be fetched
+    return {
+      dayOfWeek: 'Monday',
+      description: null,
+      requiresPassword: false,
+      password: null,
+      requireEmail: true,
+      requirePhone: true,
+    }
+  }
+}
