@@ -871,16 +871,6 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
             </div>
 
             <div className="additional-player-block">
-              <div className="additional-player-header">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={addAdditionalPlayerField}
-                  disabled={additionalCount >= 3}
-                >
-                  Add Other Golfers to My Group
-                </button>
-              </div>
               {Array.from({ length: additionalCount }, (_, i) => (
                 <div key={i} className="additional-player-block" style={{ marginTop: '12px' }}>
                   <div className="additional-player-header" style={{ marginBottom: '8px' }}>
@@ -947,6 +937,16 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   )}
                 </div>
               ))}
+              <div className="additional-player-header" style={{ marginTop: '12px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={addAdditionalPlayerField}
+                  disabled={additionalCount >= 3}
+                >
+                  Add Other Golfers to My Group
+                </button>
+              </div>
             </div>
             <select
               value={hole}
