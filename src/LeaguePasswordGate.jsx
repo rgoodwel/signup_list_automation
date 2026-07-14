@@ -37,7 +37,7 @@ export default function LeaguePasswordGate({ onUnlock }) {
     <div className="password-gate">
       <div className="password-gate-content">
         <h2>Access Required</h2>
-        <p className="muted">This league requires a password to access.</p>
+        <p className="muted">This league requires a password to signup.</p>
         <form onSubmit={handleSubmit} className="password-form">
           <input
             type="password"
