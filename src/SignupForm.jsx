@@ -300,7 +300,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   // Derived state from week data
   const isWeekLocked   = weekKey && week && week.closed_at
   const isWeekFinalized = !weekKey  // No current week means it was finalized
-  const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey) : null
+  const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey, league?.day_of_week) : null
   const bUnlocked = week?.b_groups_unlocked || false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
