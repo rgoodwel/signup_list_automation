@@ -83,13 +83,21 @@ function ordinalSuffix(n) {
   return 'th'
 }
 
-export function weekKeyToRoundDateLabel(key) {
+export function weekKeyToRoundDateLabel(key, dayOfWeek = 'Monday') {
   if (!key) return '—'
   const [yearRaw, weekRaw] = key.split('-W')
   const year = parseInt(yearRaw, 10)
   const week = parseInt(weekRaw, 10)
   if (!year || !week) return '—'
 
+  // Map day names to numbers (0=Sunday, 1=Monday, etc.)
+  const dayMap = {
+    'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+    'Thursday': 4, 'Friday': 5, 'Saturday': 6,
+  }
+  const targetDayNum = dayMap[dayOfWeek] ?? 1
+
+  // Calculate Monday of the week
   const jan4 = new Date(Date.UTC(year, 0, 4))
   const jan4Day = jan4.getUTCDay() || 7
   const week1Monday = new Date(jan4)
@@ -98,12 +106,15 @@ export function weekKeyToRoundDateLabel(key) {
   const roundMonday = new Date(week1Monday)
   roundMonday.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7 + 7)
 
+  // Adjust to league's preferred day
+  const daysToAdd = targetDayNum - 1
+  const roundDay = new Date(roundMonday)
+  roundDay.setUTCDate(roundMonday.getUTCDate() + daysToAdd)
+
+  // Format and return
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'UTC',
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }).formatToParts(roundMonday)
+    timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric',
+  }).formatToParts(roundDay)
 
   const weekday = parts.find(p => p.type === 'weekday')?.value || 'Monday'
   const month = parts.find(p => p.type === 'month')?.value || 'January'
@@ -1044,5 +1055,42 @@ export function computePlayerStats(player, allWeekKeys, participation = {}) {
     lastWeekKey,
     totalWeeks,
     currentStreak,
+  }
+}
+
+// ── League Settings (Read-only access to settings, write should go through Supabase UI) ──
+/**
+ * Fetch league settings from database
+ * Used internally to validate requirements for signups
+ */
+export async function getLeagueSettings(leagueId) {
+  try {
+    const { data, error } = await supabase
+      .from('leagues')
+      .select('day_of_week, description, requires_password, password, require_email, require_phone')
+      .eq('id', leagueId)
+      .single()
+
+    if (error) throw error
+
+    return {
+      dayOfWeek: data?.day_of_week || 'Monday',
+      description: data?.description,
+      requiresPassword: data?.requires_password || false,
+      password: data?.password,
+      requireEmail: data?.require_email !== false,
+      requirePhone: data?.require_phone !== false,
+    }
+  } catch (err) {
+    console.error('Error fetching league settings:', err)
+    // Return defaults if settings cannot be fetched
+    return {
+      dayOfWeek: 'Monday',
+      description: null,
+      requiresPassword: false,
+      password: null,
+      requireEmail: true,
+      requirePhone: true,
+    }
   }
 }

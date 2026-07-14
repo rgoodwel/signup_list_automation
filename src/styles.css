@@ -17,6 +17,9 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;
 .header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#15324d;letter-spacing:.02em}
 .muted{color:var(--muted);margin:0}
+.league-description{margin:8px 0}
+.league-description p{margin:4px 0;color:var(--muted)}
+.league-divider{border:none;border-top:1px solid var(--border);margin:12px 0}
 
 /* ── Buttons ── */
 .btn{padding:9px 16px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:14px;transition:opacity .15s}
@@ -124,6 +127,13 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .pin-gate h2{margin:0 0 8px}
 .pin-form{display:flex;flex-direction:column;gap:10px;margin:16px 0 0}
 .pin-form input{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:16px;text-align:center;letter-spacing:.2em}
+
+/* ── Password gate ── */
+.password-gate{display:flex;align-items:center;justify-content:center;min-height:300px;padding:24px}
+.password-gate-content{max-width:380px;padding:28px;background:#fff;border:1px solid var(--border);border-radius:12px;text-align:center;width:100%}
+.password-gate-content h2{margin:0 0 8px}
+.password-form{display:flex;flex-direction:column;gap:10px;margin:16px 0 0}
+.password-form input{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:16px}
 
 /* ── Alert modal ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(20,40,60,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
