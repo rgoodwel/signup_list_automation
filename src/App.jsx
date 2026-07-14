@@ -69,7 +69,9 @@ export default function App() {
         <div className="header-row">
           <div>
             <h1>{league?.name || 'Golf League'}</h1>
-
+            {league?.description && (
+              <p className="muted">{league.description}</p>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
