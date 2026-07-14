@@ -209,6 +209,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const [popup, setPopup] = useState(null)
   const [removal, setRemoval] = useState(null)
   const [bulkMove, setBulkMove] = useState(null) // { sourceHole, players, selectedPlayerIds }
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Async state for current week
   const [weekKey, setWeekKey] = useState(null)
@@ -391,20 +392,23 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   async function handleSubmit(e) {
     e.preventDefault()
     console.log('[handleSubmit] Starting - name:', name, 'email:', email, 'phone:', phone, 'isPlayerRecognized:', isPlayerRecognized)
+    
+    try {
+      setIsSubmitting(true)
 
-    // When player is recognized, email/phone come from database; otherwise require manual entry
-    const emailRequired = !isPlayerRecognized && !email.trim()
-    const phoneRequired = !isPlayerRecognized && !phone.trim()
-    console.log('[handleSubmit] Validation - emailRequired:', emailRequired, 'phoneRequired:', phoneRequired)
+      // When player is recognized, email/phone come from database; otherwise require manual entry
+      const emailRequired = !isPlayerRecognized && !email.trim()
+      const phoneRequired = !isPlayerRecognized && !phone.trim()
+      console.log('[handleSubmit] Validation - emailRequired:', emailRequired, 'phoneRequired:', phoneRequired)
 
-    if (!name.trim() || emailRequired || phoneRequired) {
-      showError(
-        'Missing Information',
-        'Please fill in your name, email address, and phone number before signing up.',
-        'Your name must be at least a first and last name (e.g., "Jane Smith").',
-      )
-      return
-    }
+      if (!name.trim() || emailRequired || phoneRequired) {
+        showError(
+          'Missing Information',
+          'Please fill in your name, email address, and phone number before signing up.',
+          'Your name must be at least a first and last name (e.g., "Jane Smith").',
+        )
+        return
+      }
 
     // Validate phone number
     console.log('[handleSubmit] About to validate phone:', phone)
@@ -514,6 +518,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       hole,
       additionalPlayers: additionalPlayers.slice(0, additionalCount),
     })
+    setIsSubmitting(false)
     if (result.ok) {
       const group = result.holeKey.endsWith('B') ? 'B' : 'A'
       const holeNumber = result.holeKey.replace(/B$/, '')
@@ -565,6 +570,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       }
 
       showError(title, reason, hint)
+    }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -807,8 +815,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
             </div>
           ) : (
             <p className="week-open-notice">
-              Signing up for <strong>{weekKeyToLabel(weekKey)}</strong>
-              {roundDateLabel ? <> ({roundDateLabel})</> : null}
+              Signing up for <strong>{roundDateLabel || weekKeyToLabel(weekKey)}</strong>
             </p>
           )}
           {!isWeekLocked && !isWeekFinalized && (
@@ -866,9 +873,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   onClick={addAdditionalPlayerField}
                   disabled={additionalCount >= 3}
                 >
-                  Add Additional Player
+                  Add Other Golfers to My Group
                 </button>
-                <p className="muted">Optional grouped players</p>
               </div>
               {Array.from({ length: additionalCount }, (_, i) => (
                 <div key={i} className="additional-player-block" style={{ marginTop: '12px' }}>
@@ -969,7 +975,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
               )}
             </select>
             <div className="signup-submit-row">
-              <button type="submit">Sign Up</button>
+              <button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Processing...' : 'Sign Up'}
+              </button>
               <span className="signup-player-count">{totalAllPlayers} player{totalAllPlayers !== 1 ? 's' : ''} signed up</span>
             </div>
           </form>

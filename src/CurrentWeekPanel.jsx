@@ -4,11 +4,12 @@ import {
   getCurrentWeekKey,
   getWeek,
   openWeek,
+  unlockWeek,
   lockCurrentWeek,
   finalizeCurrentWeek,
   getNextWeekKey,
-  weekKeyFromDate,
   weekKeyToLabel,
+  compareWeekKeys,
 } from './storage'
 import { supabase } from './utils/supabaseClient'
 
@@ -18,6 +19,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
   const [loadingSupabase, setLoadingSupabase] = useState(false)
   const [weekKey, setWeekKey] = useState(null)
   const [week, setWeek] = useState(null)
+  const [lastWeekKey, setLastWeekKey] = useState(null) // most recent week (for computing next)
 
   // Fetch current week and players from Supabase
   useEffect(() => {
@@ -26,18 +28,19 @@ export default function CurrentWeekPanel({ onRefresh }) {
         setLoadingSupabase(true)
         const key = await getCurrentWeekKey()
         setWeekKey(key)
-        
+
         if (key) {
           const w = await getWeek(key)
           setWeek(w)
-          
+          setLastWeekKey(key)
+
           // Fetch players for this week (filtered by league)
           const { data, error } = await supabase
             .from('weekly_players')
             .select('id, player_name, player_email, hole_number, hole_group, week_number, signed_up_at')
             .eq('league_id', league?.id)
             .eq('week_number', key)
-          
+
           if (error) {
             console.error('Error fetching weekly players:', error)
           } else {
@@ -46,6 +49,16 @@ export default function CurrentWeekPanel({ onRefresh }) {
         } else {
           setWeek(null)
           setWeeklyPlayers([])
+          // No active week — find the most recently finalized one so we know what "next" is
+          if (league?.id) {
+            const { data: recentWeeks } = await supabase
+              .from('weeks')
+              .select('week_key')
+              .eq('league_id', league.id)
+              .order('opened_at', { ascending: false })
+              .limit(1)
+            setLastWeekKey(recentWeeks?.[0]?.week_key || null)
+          }
         }
       } catch (err) {
         console.error('Error loading week data:', err)
@@ -53,23 +66,20 @@ export default function CurrentWeekPanel({ onRefresh }) {
         setLoadingSupabase(false)
       }
     }
-    
+
     loadWeekData()
-  }, [onRefresh])
+  }, [onRefresh, league?.id])
 
   const isOpen  = weekKey && week && !week.closed_at
 
   async function handleLockToggle() {
     try {
       if (isOpen) {
-        // Lock the week
         await lockCurrentWeek()
       } else {
-        // Unlock the week
-        const key = weekKeyFromDate()
-        await openWeek(key)
+        // Reopen the existing locked week — don't create a new one
+        await unlockWeek(weekKey)
       }
-      // Immediately refresh the week state
       if (weekKey) {
         const updated = await getWeek(weekKey)
         setWeek(updated)
@@ -103,23 +113,25 @@ export default function CurrentWeekPanel({ onRefresh }) {
 
   async function handleOpenNextWeek() {
     try {
-      const nextWeek = getNextWeekKey(weekKey)  // Now handles null safely
+      // Compute the week to open: next after last known week, or current ISO week if no history
+      const nextWeek = getNextWeekKey(lastWeekKey)
       if (!nextWeek) {
         console.error('Could not determine next week')
         return
       }
       if (!confirm(`Open ${weekKeyToLabel(nextWeek)}?`)) return
-      
+
       await openWeek(nextWeek)
-      // Immediately refresh to the new week state
       const newWeekKey = await getCurrentWeekKey()
       if (newWeekKey) {
         const updated = await getWeek(newWeekKey)
         setWeek(updated)
         setWeekKey(newWeekKey)
+        setLastWeekKey(newWeekKey)
       }
       if (onRefresh) await onRefresh()
     } catch (err) {
+      alert(err.message || 'Error opening next week')
       console.error('Error opening next week:', err)
     }
   }
@@ -129,15 +141,20 @@ export default function CurrentWeekPanel({ onRefresh }) {
       <div className="panel-header">
         <h2>Current Week</h2>
         <div className="panel-actions" style={{display: 'flex', gap: '8px'}}>
-          {isOpen ? (
-            <button className="btn btn-danger" onClick={handleLockToggle}>Lock Signups</button>
+          {weekKey ? (
+            <>
+              {isOpen ? (
+                <button className="btn btn-danger" onClick={handleLockToggle}>Lock Signups</button>
+              ) : (
+                <button className="btn btn-primary" onClick={handleLockToggle}>Unlock Signups</button>
+              )}
+              <button className="btn btn-secondary" onClick={handleCloseWeek}>Close &amp; Finalize Week</button>
+            </>
           ) : (
-            <button className="btn btn-primary" onClick={handleLockToggle}>
-              Unlock Signups
+            <button className="btn btn-primary" onClick={handleOpenNextWeek}>
+              Open {weekKeyToLabel(getNextWeekKey(lastWeekKey))}
             </button>
           )}
-          <button className="btn btn-secondary" onClick={handleCloseWeek}>Close Week</button>
-          <button className="btn btn-warning" onClick={handleOpenNextWeek}>Open Next Week</button>
         </div>
       </div>
 
@@ -180,7 +197,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
         <p className="empty">
           {weekKey
             ? `${weekKeyToLabel(weekKey)} signups are locked.`
-            : 'Signups are locked. Use "Unlock Signups" to open the current week.'}
+            : 'No active week. Use the button above to open the next week.'}
         </p>
       )}
     </div>
