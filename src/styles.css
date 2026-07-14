@@ -128,6 +128,13 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .pin-form{display:flex;flex-direction:column;gap:10px;margin:16px 0 0}
 .pin-form input{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:16px;text-align:center;letter-spacing:.2em}
 
+/* ── Password gate ── */
+.password-gate{display:flex;align-items:center;justify-content:center;min-height:300px;padding:24px}
+.password-gate-content{max-width:380px;padding:28px;background:#fff;border:1px solid var(--border);border-radius:12px;text-align:center;width:100%}
+.password-gate-content h2{margin:0 0 8px}
+.password-form{display:flex;flex-direction:column;gap:10px;margin:16px 0 0}
+.password-form input{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:16px}
+
 /* ── Alert modal ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(20,40,60,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
 .modal-card{background:#fff;border-radius:14px;box-shadow:0 16px 48px rgba(20,40,60,0.22);max-width:440px;width:100%;padding:28px 28px 22px;animation:modal-in .18s ease}

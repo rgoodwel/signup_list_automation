@@ -3,6 +3,7 @@ import { useLeague } from './contexts/LeagueContext'
 import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, getCurrentWeekKey, getWeek, setCurrentLeague, ensureCurrentWeekExists } from './storage'
 import SignupForm from './SignupForm'
 import AdminView from './AdminView'
+import LeaguePasswordGate from './LeaguePasswordGate'
 
 export default function App() {
   const league = useLeague()
@@ -12,6 +13,7 @@ export default function App() {
   const [currentWeekKey, setCurrentWeekKey] = useState(null)
   const [currentWeek, setCurrentWeek] = useState(null)
   const [ready, setReady]     = useState(false)
+  const [passwordVerified, setPasswordVerified] = useState(false)
 
   const refresh = useCallback(async () => {
     await refreshFromBackend()
@@ -92,7 +94,9 @@ export default function App() {
       </header>
 
       <main>
-        {view === 'player' ? (
+        {league?.requires_password && !passwordVerified ? (
+          <LeaguePasswordGate onUnlock={() => setPasswordVerified(true)} />
+        ) : view === 'player' ? (
           <SignupForm players={players} weekKey={currentWeekKey} week={currentWeek} onSignedUp={refresh} />
         ) : (
           <AdminView players={players} weeks={weeks} onRefresh={refresh} />
