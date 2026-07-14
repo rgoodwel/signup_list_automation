@@ -873,9 +873,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   onClick={addAdditionalPlayerField}
                   disabled={additionalCount >= 3}
                 >
-                  Add Additional Player
+                  Add Other Golfers to My Group
                 </button>
-                <p className="muted">Optional grouped players</p>
               </div>
               {Array.from({ length: additionalCount }, (_, i) => (
                 <div key={i} className="additional-player-block" style={{ marginTop: '12px' }}>
