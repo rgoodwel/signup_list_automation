@@ -69,7 +69,7 @@ export default function App() {
         <div className="header-row">
           <div>
             <h1>{league?.name || 'Golf League'}</h1>
-            <p className="muted">Sign up for this week’s round below.</p>
+
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
