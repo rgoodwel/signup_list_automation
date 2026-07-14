@@ -70,7 +70,14 @@ export default function App() {
           <div>
             <h1>{league?.name || 'Golf League'}</h1>
             {league?.description && (
-              <p className="muted">{league.description}</p>
+              <>
+                <div className="league-description">
+                  {league.description.split(';').map((line, i) => (
+                    <p key={i} className="muted">{line.trim()}</p>
+                  ))}
+                </div>
+                <hr className="league-divider" />
+              </>
             )}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
