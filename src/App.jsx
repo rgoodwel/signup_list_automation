@@ -96,7 +96,7 @@ export default function App() {
               className="intro-video-link"
               onClick={() => setShowIntroVideo(true)}
             >
-              App Intro: How to Sign Up
+              Signup & Feature Demo
             </button>
           </div>
         </div>
@@ -126,7 +126,7 @@ export default function App() {
                 </button>
               </div>
               <p className="muted intro-video-modal-copy">
-                Learn how to sign up players, add additional golfers, manage holes, and use admin tools.
+                Learn how to sign up players, add additional golfers, and move players/holes.
               </p>
               <video className="intro-video" controls preload="metadata" autoPlay>
                 <source src={signupIntroVideo} type="video/mp4" />
