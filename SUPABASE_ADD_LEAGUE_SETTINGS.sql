@@ -26,5 +26,9 @@ ALTER TABLE leagues ADD COLUMN IF NOT EXISTS require_email BOOLEAN DEFAULT TRUE;
 ALTER TABLE leagues ADD COLUMN IF NOT EXISTS require_phone BOOLEAN DEFAULT TRUE;
 -- If true, phone number is required from all players
 
+ALTER TABLE leagues ADD COLUMN IF NOT EXISTS require_additional_player_info BOOLEAN DEFAULT TRUE;
+-- If false, additional players only require a name (email/phone become optional)
+-- If true, additional players follow require_email/require_phone settings like primary players
+
 -- Update existing leagues to have sensible defaults if they were created before this migration
 UPDATE leagues SET day_of_week = 'Monday' WHERE day_of_week IS NULL;
