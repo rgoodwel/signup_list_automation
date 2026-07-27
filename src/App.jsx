@@ -84,28 +84,25 @@ export default function App() {
               </>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="header-actions">
             <button
               className="btn btn-ghost"
               onClick={() => setView(v => v === 'admin' ? 'player' : 'admin')}
             >
               {view === 'admin' ? '← Player View' : 'Admin ⚙'}
             </button>
+            <button
+              type="button"
+              className="intro-video-link"
+              onClick={() => setShowIntroVideo(true)}
+            >
+              App Intro: How to Sign Up
+            </button>
           </div>
         </div>
       </header>
 
       <main>
-        <div className="intro-video-trigger-row">
-          <button
-            type="button"
-            className="intro-video-link"
-            onClick={() => setShowIntroVideo(true)}
-          >
-            New users and admins: watch the quick app walkthrough
-          </button>
-        </div>
-
         {league?.requires_password && !passwordVerified ? (
           <LeaguePasswordGate onUnlock={() => setPasswordVerified(true)} />
         ) : view === 'player' ? (
