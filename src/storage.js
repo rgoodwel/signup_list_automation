@@ -561,7 +561,7 @@ async function getHolePlayers(weekKey, holeNumber, holeGroup) {
   }
 }
 
-export async function addSignupToWeek({ name, email, phone, hole, additionalPlayers = [] }) {
+export async function addSignupToWeek({ name, email, phone, hole, additionalPlayers = [], leagueSettings = {} }) {
   if (!currentLeagueId) {
     return { ok: false, reason: 'No league selected. Please refresh and try again.' }
   }
@@ -624,6 +624,10 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       .slice(0, 3)
     
     // Validate all additional players
+    // Use explicit !== false checks to default to true for backward compatibility
+    const shouldRequireEmail = leagueSettings?.require_email !== false
+    const shouldRequirePhone = leagueSettings?.require_phone !== false
+    
     for (const extra of extras) {
       if (!isFullName(extra.name)) {
         return {
@@ -632,14 +636,14 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         }
       }
       
-      if (!extra.email || !extra.email.trim()) {
+      if (shouldRequireEmail && (!extra.email || !extra.email.trim())) {
         return {
           ok: false,
           reason: `"${extra.name}" — email address is required for all additional players.`,
         }
       }
       
-      if (!extra.phone || !extra.phone.trim()) {
+      if (shouldRequirePhone && (!extra.phone || !extra.phone.trim())) {
         return {
           ok: false,
           reason: `"${extra.name}" — phone number is required for all additional players.`,

@@ -537,6 +537,12 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       phone,
       hole,
       additionalPlayers: additionalPlayers.slice(0, additionalCount),
+      leagueSettings: {
+        require_email: league?.require_email,
+        require_phone: league?.require_phone,
+        show_email: league?.show_email,
+        show_phone: league?.show_phone,
+      },
     })
     setIsSubmitting(false)
     if (result.ok) {
