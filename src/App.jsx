@@ -15,6 +15,7 @@ export default function App() {
   const [currentWeek, setCurrentWeek] = useState(null)
   const [ready, setReady]     = useState(false)
   const [passwordVerified, setPasswordVerified] = useState(false)
+  const [showIntroVideo, setShowIntroVideo] = useState(false)
 
   const refresh = useCallback(async () => {
     await refreshFromBackend()
@@ -95,19 +96,15 @@ export default function App() {
       </header>
 
       <main>
-        <section className="intro-video-card" aria-labelledby="intro-video-heading">
-          <div className="intro-video-copy">
-            <h2 id="intro-video-heading">New Here? Watch a Quick Intro</h2>
-            <p className="muted">
-              This short walkthrough covers player signup, adding friends, hole management,
-              and admin tools so new users can get started quickly.
-            </p>
-          </div>
-          <video className="intro-video" controls preload="metadata">
-            <source src={signupIntroVideo} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-        </section>
+        <div className="intro-video-trigger-row">
+          <button
+            type="button"
+            className="intro-video-link"
+            onClick={() => setShowIntroVideo(true)}
+          >
+            New users and admins: watch the quick app walkthrough
+          </button>
+        </div>
 
         {league?.requires_password && !passwordVerified ? (
           <LeaguePasswordGate onUnlock={() => setPasswordVerified(true)} />
@@ -115,6 +112,31 @@ export default function App() {
           <SignupForm players={players} weekKey={currentWeekKey} week={currentWeek} onSignedUp={refresh} />
         ) : (
           <AdminView players={players} weeks={weeks} onRefresh={refresh} />
+        )}
+
+        {showIntroVideo && (
+          <div className="intro-video-modal-overlay" onClick={() => setShowIntroVideo(false)}>
+            <div className="intro-video-modal-card" onClick={e => e.stopPropagation()}>
+              <div className="intro-video-modal-header">
+                <h2>Application Walkthrough</h2>
+                <button
+                  type="button"
+                  className="intro-video-modal-close"
+                  aria-label="Close video"
+                  onClick={() => setShowIntroVideo(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <p className="muted intro-video-modal-copy">
+                Learn how to sign up players, add additional golfers, manage holes, and use admin tools.
+              </p>
+              <video className="intro-video" controls preload="metadata" autoPlay>
+                <source src={signupIntroVideo} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </div>
         )}
       </main>
 
