@@ -15,11 +15,26 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;
 
 /* ── Header ── */
 .header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.header-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#15324d;letter-spacing:.02em}
 .muted{color:var(--muted);margin:0}
 .league-description{margin:8px 0}
 .league-description p{margin:4px 0;color:var(--muted)}
 .league-divider{border:none;border-top:1px solid var(--border);margin:12px 0}
+
+/* ── Intro video ── */
+.intro-video-trigger-row{margin:0 0 14px}
+.intro-video-link{background:none;border:none;padding:0;color:#1b4c75;font-weight:600;text-decoration:underline;cursor:pointer;font-size:14px}
+.intro-video-link:hover{color:#15324d}
+.intro-video{width:100%;display:block;border-radius:10px;border:1px solid rgba(20,40,60,0.1);background:#000;max-height:65vh}
+
+.intro-video-modal-overlay{position:fixed;inset:0;background:rgba(20,40,60,0.5);display:flex;align-items:center;justify-content:center;z-index:1200;padding:16px}
+.intro-video-modal-card{background:#fff;border-radius:14px;box-shadow:0 16px 48px rgba(20,40,60,0.22);width:min(920px,100%);padding:16px;border:1px solid var(--border)}
+.intro-video-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.intro-video-modal-header h2{margin:0;font-size:20px;color:#15324d}
+.intro-video-modal-close{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#f3f0ea;color:#26445f;font-weight:600;cursor:pointer}
+.intro-video-modal-close:hover{opacity:.85}
+.intro-video-modal-copy{margin:0 0 10px}
 
 /* ── Buttons ── */
 .btn{padding:9px 16px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:14px;transition:opacity .15s}
@@ -175,5 +190,9 @@ footer{margin-top:24px;color:var(--muted)}
 }
 
 @media (max-width: 620px){
+  .header-actions{align-items:flex-start}
   .holes-grid{grid-template-columns:1fr}
+  .intro-video-modal-card{padding:12px}
+  .intro-video-modal-header h2{font-size:17px}
+  .intro-video-link{font-size:13px}
 }

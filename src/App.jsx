@@ -4,6 +4,7 @@ import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, getCurrent
 import SignupForm from './SignupForm'
 import AdminView from './AdminView'
 import LeaguePasswordGate from './LeaguePasswordGate'
+import signupIntroVideo from '../Golf League Sign Up Feature Demo.mp4'
 
 export default function App() {
   const league = useLeague()
@@ -14,6 +15,7 @@ export default function App() {
   const [currentWeek, setCurrentWeek] = useState(null)
   const [ready, setReady]     = useState(false)
   const [passwordVerified, setPasswordVerified] = useState(false)
+  const [showIntroVideo, setShowIntroVideo] = useState(false)
 
   const refresh = useCallback(async () => {
     await refreshFromBackend()
@@ -82,12 +84,19 @@ export default function App() {
               </>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="header-actions">
             <button
               className="btn btn-ghost"
               onClick={() => setView(v => v === 'admin' ? 'player' : 'admin')}
             >
               {view === 'admin' ? '← Player View' : 'Admin ⚙'}
+            </button>
+            <button
+              type="button"
+              className="intro-video-link"
+              onClick={() => setShowIntroVideo(true)}
+            >
+              Signup & Feature Demo
             </button>
           </div>
         </div>
@@ -100,6 +109,31 @@ export default function App() {
           <SignupForm players={players} weekKey={currentWeekKey} week={currentWeek} onSignedUp={refresh} />
         ) : (
           <AdminView players={players} weeks={weeks} onRefresh={refresh} />
+        )}
+
+        {showIntroVideo && (
+          <div className="intro-video-modal-overlay" onClick={() => setShowIntroVideo(false)}>
+            <div className="intro-video-modal-card" onClick={e => e.stopPropagation()}>
+              <div className="intro-video-modal-header">
+                <h2>Application Walkthrough</h2>
+                <button
+                  type="button"
+                  className="intro-video-modal-close"
+                  aria-label="Close video"
+                  onClick={() => setShowIntroVideo(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <p className="muted intro-video-modal-copy">
+                Learn how to sign up players, add additional golfers, and move players/holes.
+              </p>
+              <video className="intro-video" controls preload="metadata" autoPlay>
+                <source src={signupIntroVideo} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </div>
         )}
       </main>
 
