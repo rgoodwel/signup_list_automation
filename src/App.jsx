@@ -4,6 +4,7 @@ import { initializeStorage, refreshFromBackend, getPlayers, getWeeks, getCurrent
 import SignupForm from './SignupForm'
 import AdminView from './AdminView'
 import LeaguePasswordGate from './LeaguePasswordGate'
+import signupIntroVideo from '../Golf League Sign Up Feature Demo.mp4'
 
 export default function App() {
   const league = useLeague()
@@ -94,6 +95,20 @@ export default function App() {
       </header>
 
       <main>
+        <section className="intro-video-card" aria-labelledby="intro-video-heading">
+          <div className="intro-video-copy">
+            <h2 id="intro-video-heading">New Here? Watch a Quick Intro</h2>
+            <p className="muted">
+              This short walkthrough covers player signup, adding friends, hole management,
+              and admin tools so new users can get started quickly.
+            </p>
+          </div>
+          <video className="intro-video" controls preload="metadata">
+            <source src={signupIntroVideo} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </section>
+
         {league?.requires_password && !passwordVerified ? (
           <LeaguePasswordGate onUnlock={() => setPasswordVerified(true)} />
         ) : view === 'player' ? (
