@@ -23,6 +23,7 @@ export function useLeagueSettings() {
     // Player field requirements
     requireEmail: league?.require_email !== false, // Default to true
     requirePhone: league?.require_phone !== false, // Default to true
+    requireAdditionalPlayerInfo: league?.require_additional_player_info !== false, // Default to true
   }
 }
 

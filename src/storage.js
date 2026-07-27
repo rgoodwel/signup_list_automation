@@ -561,7 +561,7 @@ async function getHolePlayers(weekKey, holeNumber, holeGroup) {
   }
 }
 
-export async function addSignupToWeek({ name, email, phone, hole, additionalPlayers = [] }) {
+export async function addSignupToWeek({ name, email, phone, hole, additionalPlayers = [], leagueSettings = {} }) {
   if (!currentLeagueId) {
     return { ok: false, reason: 'No league selected. Please refresh and try again.' }
   }
@@ -623,7 +623,17 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       .filter(p => p && p.name && p.name.trim())
       .slice(0, 3)
     
-    // Validate all additional players
+    // Validate all additional players.
+    // If require_additional_player_info is false, additional email/phone are optional.
+    // When true, additional players follow the same email/phone requirement flags as primary players.
+    const requireAdditionalPlayerInfo = leagueSettings?.require_additional_player_info !== false
+    const shouldShowEmail = leagueSettings?.show_email !== false
+    const shouldShowPhone = leagueSettings?.show_phone !== false
+    const shouldRequireEmail = leagueSettings?.require_email !== false
+    const shouldRequirePhone = leagueSettings?.require_phone !== false
+    const shouldRequireAdditionalEmail = requireAdditionalPlayerInfo && shouldShowEmail && shouldRequireEmail
+    const shouldRequireAdditionalPhone = requireAdditionalPlayerInfo && shouldShowPhone && shouldRequirePhone
+    
     for (const extra of extras) {
       if (!isFullName(extra.name)) {
         return {
@@ -632,14 +642,14 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         }
       }
       
-      if (!extra.email || !extra.email.trim()) {
+      if (shouldRequireAdditionalEmail && (!extra.email || !extra.email.trim())) {
         return {
           ok: false,
           reason: `"${extra.name}" — email address is required for all additional players.`,
         }
       }
       
-      if (!extra.phone || !extra.phone.trim()) {
+      if (shouldRequireAdditionalPhone && (!extra.phone || !extra.phone.trim())) {
         return {
           ok: false,
           reason: `"${extra.name}" — phone number is required for all additional players.`,
@@ -1067,7 +1077,7 @@ export async function getLeagueSettings(leagueId) {
   try {
     const { data, error } = await supabase
       .from('leagues')
-      .select('day_of_week, description, requires_password, password, require_email, require_phone')
+      .select('day_of_week, description, requires_password, password, require_email, require_phone, require_additional_player_info')
       .eq('id', leagueId)
       .single()
 
@@ -1080,6 +1090,7 @@ export async function getLeagueSettings(leagueId) {
       password: data?.password,
       requireEmail: data?.require_email !== false,
       requirePhone: data?.require_phone !== false,
+      requireAdditionalPlayerInfo: data?.require_additional_player_info !== false,
     }
   } catch (err) {
     console.error('Error fetching league settings:', err)
@@ -1091,6 +1102,7 @@ export async function getLeagueSettings(leagueId) {
       password: null,
       requireEmail: true,
       requirePhone: true,
+      requireAdditionalPlayerInfo: true,
     }
   }
 }

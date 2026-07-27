@@ -302,6 +302,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const isWeekFinalized = !weekKey  // No current week means it was finalized
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey, league?.day_of_week) : null
   const bUnlocked = week?.b_groups_unlocked || false
+  const requireAdditionalPlayerInfo = league?.require_additional_player_info !== false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalAllPlayers = totalAPlayers + totalBPlayers
@@ -397,9 +398,16 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       setIsSubmitting(true)
 
       // When player is recognized, email/phone come from database; otherwise require manual entry
-      const emailRequired = league?.require_email && !isPlayerRecognized && !email.trim()
-      const phoneRequired = league?.require_phone && !isPlayerRecognized && !phone.trim()
-      console.log('[handleSubmit] Validation - emailRequired:', emailRequired, 'phoneRequired:', phoneRequired, 'leagueRequireEmail:', league?.require_email, 'leagueRequirePhone:', league?.require_phone)
+      // Only enforce field requirements if the field is shown
+      // Note: show_email/require_email/show_phone/require_phone default to true for backward compatibility
+      const shouldShowEmail = league?.show_email !== false  // Default true
+      const shouldRequireEmail = league?.require_email !== false  // Default true
+      const shouldShowPhone = league?.show_phone !== false  // Default true
+      const shouldRequirePhone = league?.require_phone !== false  // Default true
+
+      const emailRequired = shouldShowEmail && shouldRequireEmail && !isPlayerRecognized && !email.trim()
+      const phoneRequired = shouldShowPhone && shouldRequirePhone && !isPlayerRecognized && !phone.trim()
+      console.log('[handleSubmit] Validation - emailRequired:', emailRequired, 'phoneRequired:', phoneRequired, 'shouldRequireEmail:', shouldRequireEmail, 'shouldRequirePhone:', shouldRequirePhone, 'shouldShowEmail:', shouldShowEmail, 'shouldShowPhone:', shouldShowPhone)
 
       if (!name.trim() || emailRequired || phoneRequired) {
         const missingFields = []
@@ -415,9 +423,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
 
-    // Validate phone number only if required by league
-    console.log('[handleSubmit] About to validate phone:', phone, 'phoneRequired:', league?.require_phone)
-    if (league?.require_phone && !isValidPhoneNumber(phone)) {
+    // Validate phone number only if shown and required by league
+    console.log('[handleSubmit] About to validate phone:', phone, 'shouldRequirePhone:', shouldRequirePhone, 'shouldShowPhone:', shouldShowPhone)
+    if (shouldShowPhone && shouldRequirePhone && !isValidPhoneNumber(phone)) {
       showError(
         'Invalid Phone Number',
         'Please enter a valid 10-digit phone number.',
@@ -451,9 +459,15 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      // Skip email check if player was recognized from database or if league doesn't require email
+      // Additional-player email/phone requirements are controlled by league setting.
+      // If disabled, only name is required for additional players.
+      // Note: show_email/require_email default to true for backward compatibility.
       const additionalIsRecognized = additionalPlayersRecognized[i] || false
-      if (league?.require_email && !additionalIsRecognized && !p.email.trim()) {
+      const shouldShowEmail = league?.show_email !== false  // Default true
+      const shouldRequireEmail = league?.require_email !== false  // Default true
+      const shouldRequireAdditionalEmail = requireAdditionalPlayerInfo && shouldShowEmail && shouldRequireEmail
+      
+      if (shouldRequireAdditionalEmail && !additionalIsRecognized && !p.email.trim()) {
         showError(
           'Missing Information',
           `Additional Player ${i + 1} — Email is required.`,
@@ -462,8 +476,12 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      // Skip phone check if player was recognized from database or if league doesn't require phone
-      if (league?.require_phone && !additionalIsRecognized && !p.phone.trim()) {
+      // Skip phone check if player was recognized from database or if additional info requirement is disabled.
+      const shouldShowPhone = league?.show_phone !== false  // Default true
+      const shouldRequirePhone = league?.require_phone !== false  // Default true
+      const shouldRequireAdditionalPhone = requireAdditionalPlayerInfo && shouldShowPhone && shouldRequirePhone
+      
+      if (shouldRequireAdditionalPhone && !additionalIsRecognized && !p.phone.trim()) {
         showError(
           'Missing Information',
           `Additional Player ${i + 1} — Phone number is required.`,
@@ -481,8 +499,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         return
       }
       
-      // Skip phone validation if player was recognized from database or if league doesn't require phone
-      if (league?.require_phone && !additionalIsRecognized && !isValidPhoneNumber(p.phone)) {
+      // Only validate additional phone format when additional player phone is required.
+      if (shouldRequireAdditionalPhone && !additionalIsRecognized && !isValidPhoneNumber(p.phone)) {
         showError(
           'Invalid Phone Number',
           `Additional Player ${i + 1} — Please enter a valid 10-digit phone number.`,
@@ -522,6 +540,13 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       phone,
       hole,
       additionalPlayers: additionalPlayers.slice(0, additionalCount),
+      leagueSettings: {
+        require_email: league?.require_email,
+        require_phone: league?.require_phone,
+        show_email: league?.show_email,
+        show_phone: league?.show_phone,
+        require_additional_player_info: league?.require_additional_player_info,
+      },
     })
     setIsSubmitting(false)
     if (result.ok) {
@@ -846,21 +871,25 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
               />
               {!isPlayerRecognized && (
                 <div className="form-row">
-                  <input
-                    type="email"
-                    placeholder={`Email${league?.require_email ? '' : ' (optional)'}`}
-                    value={email}
-                    onChange={e => { setEmail(e.target.value); setMsg(null) }}
-                    required={league?.require_email}
-                  />
-                  <input
-                    type="tel"
-                    placeholder={`Phone Number${league?.require_phone ? '' : ' (optional)'} ${league?.require_phone ? '(10 digits)' : '(10 digits)'}`}
-                    value={phone}
-                    onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
-                    maxLength="14"
-                    required={league?.require_phone}
-                  />
+                  {league?.show_email !== false && (
+                    <input
+                      type="email"
+                      placeholder={`Email${league?.require_email !== false ? '' : ' (optional)'}`}
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); setMsg(null) }}
+                      required={league?.require_email !== false}
+                    />
+                  )}
+                  {league?.show_phone !== false && (
+                    <input
+                      type="tel"
+                      placeholder={`Phone Number${league?.require_phone !== false ? '' : ' (optional)'} ${league?.require_phone !== false ? '(10 digits)' : '(10 digits)'}`}
+                      value={phone}
+                      onChange={e => { setPhone(formatPhoneNumber(e.target.value)); setMsg(null) }}
+                      maxLength="14"
+                      required={league?.require_phone !== false}
+                    />
+                  )}
                 </div>
               )}
               {isPlayerRecognized && (
@@ -913,21 +942,25 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                   />
                   {!additionalPlayersRecognized[i] && (
                     <div className="form-row">
-                      <input
-                        type="email"
-                        placeholder={`Email${league?.require_email ? '' : ' (optional)'}`}
-                        value={additionalPlayers[i].email}
-                        onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
-                        required={league?.require_email}
-                      />
-                      <input
-                        type="tel"
-                        placeholder={`Phone Number${league?.require_phone ? '' : ' (optional)'} (10 digits)`}
-                        value={additionalPlayers[i].phone}
-                        onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
-                        maxLength="14"
-                        required={league?.require_phone}
-                      />
+                      {league?.show_email !== false && (
+                        <input
+                          type="email"
+                          placeholder={`Email${(requireAdditionalPlayerInfo && league?.require_email !== false) ? '' : ' (optional)'}`}
+                          value={additionalPlayers[i].email}
+                          onChange={e => updateAdditionalPlayer(i, 'email', e.target.value)}
+                          required={requireAdditionalPlayerInfo && league?.require_email !== false}
+                        />
+                      )}
+                      {league?.show_phone !== false && (
+                        <input
+                          type="tel"
+                          placeholder={`Phone Number${(requireAdditionalPlayerInfo && league?.require_phone !== false) ? '' : ' (optional)'} (10 digits)`}
+                          value={additionalPlayers[i].phone}
+                          onChange={e => updateAdditionalPlayer(i, 'phone', formatPhoneNumber(e.target.value))}
+                          maxLength="14"
+                          required={requireAdditionalPlayerInfo && league?.require_phone !== false}
+                        />
+                      )}
                     </div>
                   )}
                   {additionalPlayersRecognized[i] && (
