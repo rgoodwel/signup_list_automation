@@ -9,6 +9,7 @@ import { supabase } from './utils/supabaseClient'
 export const MAX_HOLE_COUNT = 18
 export const HOLE_CAPACITY = 4
 export const DEFAULT_OPEN_HOLE_COUNT = 9
+export const MIN_FULLY_AVAILABLE_HOLES = 2
 
 export function parseBHoleUnlockSequence(sequenceRaw, openHoleCount = DEFAULT_OPEN_HOLE_COUNT) {
   const maxHoles = Math.max(1, Math.min(openHoleCount, MAX_HOLE_COUNT))
@@ -601,31 +602,29 @@ async function countNonEmptyAGroupHoles(weekKey, openHoleCount = MAX_HOLE_COUNT)
   }
 }
 
-async function countWeekPlayers(weekKey) {
+async function countNonEmptyBGroupHoles(weekKey) {
   try {
     if (!currentLeagueId) return 0
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from('weekly_players')
-      .select('id', { count: 'exact', head: true })
+      .select('hole_number')
       .eq('league_id', currentLeagueId)
       .eq('week_number', weekKey)
+      .eq('hole_group', 'B')
 
     if (error) throw error
-    return count || 0
+    return new Set((data || []).map(row => row.hole_number)).size
   } catch (err) {
-    console.error('Error counting week players:', err)
+    console.error('Error counting non-empty B-group holes:', err)
     return 0
   }
 }
 
-function computeUnlockedBHoleCount({ nonEmptyAGroupHoles, totalPlayers, openHoleCount, sequenceLength }) {
-  const firstUnlockByCoverage = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
-  const firstUnlockCapacityThreshold = Math.max(0, (openHoleCount - 1) * HOLE_CAPACITY)
-  const progressiveByCapacity = totalPlayers >= firstUnlockCapacityThreshold
-    ? Math.floor((totalPlayers - firstUnlockCapacityThreshold) / HOLE_CAPACITY) + 1
-    : 0
-
-  const unclamped = Math.max(firstUnlockByCoverage, progressiveByCapacity)
+function computeUnlockedBHoleCount({ nonEmptyAGroupHoles, nonEmptyBGroupHoles, openHoleCount, sequenceLength }) {
+  // Keep at least MIN_FULLY_AVAILABLE_HOLES completely open holes available for signup.
+  const neededUnlockedByAvailability =
+    MIN_FULLY_AVAILABLE_HOLES - (openHoleCount - nonEmptyAGroupHoles) + nonEmptyBGroupHoles
+  const unclamped = Math.max(0, neededUnlockedByAvailability)
   return Math.max(0, Math.min(unclamped, Math.max(0, sequenceLength || 0)))
 }
 
@@ -717,11 +716,11 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
 
     const { openHoleCount, allowBGroups, bHoleUnlockSequence } = getLeagueSignupConfig(leagueSettings)
     const nonEmptyAGroupHoles = allowBGroups ? await countNonEmptyAGroupHoles(weekKey, openHoleCount) : 0
-    const totalPlayers = allowBGroups ? await countWeekPlayers(weekKey) : 0
+    const nonEmptyBGroupHoles = allowBGroups ? await countNonEmptyBGroupHoles(weekKey) : 0
     const computedBHoleCount = allowBGroups
       ? computeUnlockedBHoleCount({
           nonEmptyAGroupHoles,
-          totalPlayers,
+          nonEmptyBGroupHoles,
           openHoleCount,
           sequenceLength: bHoleUnlockSequence.length,
         })
@@ -935,10 +934,10 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
 
     if (allowBGroups) {
       const nonEmptyAGroupHoles = await countNonEmptyAGroupHoles(weekKey, openHoleCount)
-      const totalPlayers = await countWeekPlayers(weekKey)
+      const nonEmptyBGroupHoles = await countNonEmptyBGroupHoles(weekKey)
       const unlockedBHoleCount = computeUnlockedBHoleCount({
         nonEmptyAGroupHoles,
-        totalPlayers,
+        nonEmptyBGroupHoles,
         openHoleCount,
         sequenceLength: bHoleUnlockSequence.length,
       })
@@ -1034,10 +1033,10 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
 
     if (weekError && weekError.code !== 'PGRST116') throw weekError
     const nonEmptyAGroupHoles = await countNonEmptyAGroupHoles(weekKey, openHoleCount)
-    const totalPlayers = await countWeekPlayers(weekKey)
+    const nonEmptyBGroupHoles = await countNonEmptyBGroupHoles(weekKey)
     const computedBHoleCount = computeUnlockedBHoleCount({
       nonEmptyAGroupHoles,
-      totalPlayers,
+      nonEmptyBGroupHoles,
       openHoleCount,
       sequenceLength: bHoleUnlockSequence.length,
     })
