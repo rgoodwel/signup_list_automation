@@ -648,6 +648,10 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       .slice(0, 3)
 
     const { openHoleCount, allowBGroups, bGroupThreshold } = getLeagueSignupConfig(leagueSettings)
+    const nonEmptyAGroupHoles = allowBGroups ? await countNonEmptyAGroupHoles(weekKey, openHoleCount) : 0
+    const computedBHoleCount = allowBGroups ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 1)) : 0
+    const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
+    const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
     
     // Validate all additional players.
     // If require_additional_player_info is false, additional email/phone are optional.
@@ -727,8 +731,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         }
       }
       
-      const unlockedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
-
       // If A-group has no good fit and B-group has unlocked holes, try B-group
       if (!bestHole && allowBGroups && unlockedBHoleCount > 0) {
         for (let i = 1; i <= unlockedBHoleCount; i++) {
@@ -771,7 +773,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         }
       }
 
-      const unlockedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || 0
       if (holeKey.endsWith('B') && unlockedBHoleCount < requestedHoleNumber) {
         return {
           ok: false,
@@ -948,7 +949,10 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
       .single()
 
     if (weekError && weekError.code !== 'PGRST116') throw weekError
-    const unlockedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
+    const nonEmptyAGroupHoles = await countNonEmptyAGroupHoles(weekKey, openHoleCount)
+    const computedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 1))
+    const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
+    const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
     if (toKey.endsWith('B') && unlockedBHoleCount < toHoleNumber) {
       return { ok: false, reason: `Group B hole ${toHoleNumber} is not yet available.` }
     }

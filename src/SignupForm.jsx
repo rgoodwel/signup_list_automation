@@ -220,9 +220,17 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
 
   // Define hole keys early so they can be used in useEffect
   const holeKeys = useMemo(() => Array.from({ length: openHoleCount }, (_, i) => String(i + 1)), [openHoleCount])
-  const unlockedBHoleCount = allowBGroups
+  const nonEmptyAGroupHoles = holeKeys.reduce(
+    (sum, k) => sum + ((holes[k] || []).length > 0 ? 1 : 0),
+    0,
+  )
+  const computedBHoleCount = allowBGroups
+    ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 1))
+    : 0
+  const storedBHoleCount = allowBGroups
     ? Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
     : 0
+  const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
   const bHoleKeys = useMemo(
     () => (allowBGroups ? Array.from({ length: unlockedBHoleCount }, (_, i) => `${i + 1}B`) : []),
     [allowBGroups, unlockedBHoleCount],
@@ -312,7 +320,6 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalAllPlayers = totalAPlayers + totalBPlayers
-  const nonEmptyAGroupHoles = holeKeys.reduce((sum, k) => sum + ((holes[k] || []).length > 0 ? 1 : 0), 0)
   const bUnlockRemaining = allowBGroups ? Math.max(0, (openHoleCount - 1) - nonEmptyAGroupHoles) : 0
 
   // Derived values for bulk move modal — recomputed every render so checkboxes update the list instantly
