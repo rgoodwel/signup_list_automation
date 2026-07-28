@@ -1,4 +1,5 @@
 import { useLeague } from '../contexts/LeagueContext'
+import { MAX_HOLE_COUNT } from '../storage'
 
 /**
  * Hook to access league-specific settings
@@ -27,7 +28,7 @@ export function useLeagueSettings() {
 
     // Hole availability
     defaultOpenHoles: Number.isFinite(Number.parseInt(league?.default_open_holes, 10))
-      ? Math.max(1, Math.min(Number.parseInt(league?.default_open_holes, 10), 9))
+      ? Math.max(1, Math.min(Number.parseInt(league?.default_open_holes, 10), MAX_HOLE_COUNT))
       : 6,
     allowBGroups: league?.allow_b_groups !== false,
   }

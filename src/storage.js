@@ -6,9 +6,9 @@
 
 import { supabase } from './utils/supabaseClient'
 
-export const HOLE_COUNT = 9
+export const MAX_HOLE_COUNT = 18
 export const HOLE_CAPACITY = 4
-export const DEFAULT_OPEN_HOLE_COUNT = 6
+export const DEFAULT_OPEN_HOLE_COUNT = 9
 
 export function getLeagueSignupConfig(leagueSettings = {}) {
   const parsedOpenHoleCount = Number.parseInt(
@@ -17,7 +17,7 @@ export function getLeagueSignupConfig(leagueSettings = {}) {
   )
   const openHoleCount = Math.max(
     1,
-    Math.min(Number.isNaN(parsedOpenHoleCount) ? DEFAULT_OPEN_HOLE_COUNT : parsedOpenHoleCount, HOLE_COUNT),
+    Math.min(Number.isNaN(parsedOpenHoleCount) ? DEFAULT_OPEN_HOLE_COUNT : parsedOpenHoleCount, MAX_HOLE_COUNT),
   )
   const allowBGroups = leagueSettings?.allow_b_groups !== false
 
@@ -60,12 +60,12 @@ function normalizeHole(value) {
   const s = String(value || '').trim().toUpperCase()
   if (s.endsWith('B')) {
     const n = parseInt(s.slice(0, -1), 10)
-    if (Number.isNaN(n) || n < 1 || n > HOLE_COUNT) return null
+    if (Number.isNaN(n) || n < 1 || n > MAX_HOLE_COUNT) return null
     return `${n}B`
   }
   const n = parseInt(s, 10)
   if (Number.isNaN(n)) return null
-  if (n < 1 || n > HOLE_COUNT) return null
+  if (n < 1 || n > MAX_HOLE_COUNT) return null
   return String(n)
 }
 
@@ -537,7 +537,7 @@ export async function getPlayers() {
   }
 }
 
-async function countAGroupPlayers(weekKey, openHoleCount = HOLE_COUNT) {
+async function countAGroupPlayers(weekKey, openHoleCount = MAX_HOLE_COUNT) {
   try {
     if (!currentLeagueId) return 0
     // Count ALL players (primary + guests) in A-group, not just primaries
@@ -1140,7 +1140,7 @@ export async function getLeagueSettings(leagueId) {
       requirePhone: data?.require_phone !== false,
       requireAdditionalPlayerInfo: data?.require_additional_player_info !== false,
       defaultOpenHoles: Number.isFinite(Number.parseInt(data?.default_open_holes, 10))
-        ? Math.max(1, Math.min(Number.parseInt(data?.default_open_holes, 10), HOLE_COUNT))
+        ? Math.max(1, Math.min(Number.parseInt(data?.default_open_holes, 10), MAX_HOLE_COUNT))
         : DEFAULT_OPEN_HOLE_COUNT,
       allowBGroups: data?.allow_b_groups !== false,
     }
