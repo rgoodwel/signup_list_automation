@@ -24,6 +24,12 @@ export function useLeagueSettings() {
     requireEmail: league?.require_email !== false, // Default to true
     requirePhone: league?.require_phone !== false, // Default to true
     requireAdditionalPlayerInfo: league?.require_additional_player_info !== false, // Default to true
+
+    // Hole availability
+    defaultOpenHoles: Number.isFinite(Number.parseInt(league?.default_open_holes, 10))
+      ? Math.max(1, Math.min(Number.parseInt(league?.default_open_holes, 10), 9))
+      : 6,
+    allowBGroups: league?.allow_b_groups !== false,
   }
 }
 
