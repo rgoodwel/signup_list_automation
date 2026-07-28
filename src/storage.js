@@ -649,7 +649,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
 
     const { openHoleCount, allowBGroups, bGroupThreshold } = getLeagueSignupConfig(leagueSettings)
     const nonEmptyAGroupHoles = allowBGroups ? await countNonEmptyAGroupHoles(weekKey, openHoleCount) : 0
-    const computedBHoleCount = allowBGroups ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 1)) : 0
+    const computedBHoleCount = allowBGroups ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2)) : 0
     const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
     const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
     
@@ -950,7 +950,7 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
 
     if (weekError && weekError.code !== 'PGRST116') throw weekError
     const nonEmptyAGroupHoles = await countNonEmptyAGroupHoles(weekKey, openHoleCount)
-    const computedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 1))
+    const computedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
     const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
     const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
     if (toKey.endsWith('B') && unlockedBHoleCount < toHoleNumber) {

@@ -225,7 +225,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     0,
   )
   const computedBHoleCount = allowBGroups
-    ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 1))
+    ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
     : 0
   const storedBHoleCount = allowBGroups
     ? Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
