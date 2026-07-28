@@ -601,6 +601,34 @@ async function countNonEmptyAGroupHoles(weekKey, openHoleCount = MAX_HOLE_COUNT)
   }
 }
 
+async function countWeekPlayers(weekKey) {
+  try {
+    if (!currentLeagueId) return 0
+    const { count, error } = await supabase
+      .from('weekly_players')
+      .select('id', { count: 'exact', head: true })
+      .eq('league_id', currentLeagueId)
+      .eq('week_number', weekKey)
+
+    if (error) throw error
+    return count || 0
+  } catch (err) {
+    console.error('Error counting week players:', err)
+    return 0
+  }
+}
+
+function computeUnlockedBHoleCount({ nonEmptyAGroupHoles, totalPlayers, openHoleCount, sequenceLength }) {
+  const firstUnlockByCoverage = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
+  const firstUnlockCapacityThreshold = Math.max(0, (openHoleCount - 1) * HOLE_CAPACITY)
+  const progressiveByCapacity = totalPlayers >= firstUnlockCapacityThreshold
+    ? Math.floor((totalPlayers - firstUnlockCapacityThreshold) / HOLE_CAPACITY) + 1
+    : 0
+
+  const unclamped = Math.max(firstUnlockByCoverage, progressiveByCapacity)
+  return Math.max(0, Math.min(unclamped, Math.max(0, sequenceLength || 0)))
+}
+
 async function getHolePlayers(weekKey, holeNumber, holeGroup) {
   try {
     if (!currentLeagueId) return []
@@ -687,9 +715,17 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       .filter(p => p && p.name && p.name.trim())
       .slice(0, 3)
 
-    const { openHoleCount, allowBGroups } = getLeagueSignupConfig(leagueSettings)
+    const { openHoleCount, allowBGroups, bHoleUnlockSequence } = getLeagueSignupConfig(leagueSettings)
     const nonEmptyAGroupHoles = allowBGroups ? await countNonEmptyAGroupHoles(weekKey, openHoleCount) : 0
-    const computedBHoleCount = allowBGroups ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2)) : 0
+    const totalPlayers = allowBGroups ? await countWeekPlayers(weekKey) : 0
+    const computedBHoleCount = allowBGroups
+      ? computeUnlockedBHoleCount({
+          nonEmptyAGroupHoles,
+          totalPlayers,
+          openHoleCount,
+          sequenceLength: bHoleUnlockSequence.length,
+        })
+      : 0
     const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
     const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
     const unlockedBHoleNumbers = getUnlockedBHoleKeys(unlockedBHoleCount, leagueSettings)
@@ -899,7 +935,13 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
 
     if (allowBGroups) {
       const nonEmptyAGroupHoles = await countNonEmptyAGroupHoles(weekKey, openHoleCount)
-      const unlockedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
+      const totalPlayers = await countWeekPlayers(weekKey)
+      const unlockedBHoleCount = computeUnlockedBHoleCount({
+        nonEmptyAGroupHoles,
+        totalPlayers,
+        openHoleCount,
+        sequenceLength: bHoleUnlockSequence.length,
+      })
       const currentUnlockedBHoles = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || 0
 
       if (unlockedBHoleCount !== currentUnlockedBHoles) {
@@ -969,7 +1011,7 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
   try {
     if (!currentLeagueId) return { ok: false, reason: 'No league selected.' }
     
-    const { openHoleCount, allowBGroups } = getLeagueSignupConfig(leagueSettings)
+    const { openHoleCount, allowBGroups, bHoleUnlockSequence } = getLeagueSignupConfig(leagueSettings)
 
     const toKey = normalizeHole(toHole)
     if (!toKey) return { ok: false, reason: 'Invalid hole.' }
@@ -992,7 +1034,13 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
 
     if (weekError && weekError.code !== 'PGRST116') throw weekError
     const nonEmptyAGroupHoles = await countNonEmptyAGroupHoles(weekKey, openHoleCount)
-    const computedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
+    const totalPlayers = await countWeekPlayers(weekKey)
+    const computedBHoleCount = computeUnlockedBHoleCount({
+      nonEmptyAGroupHoles,
+      totalPlayers,
+      openHoleCount,
+      sequenceLength: bHoleUnlockSequence.length,
+    })
     const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
     const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
     const unlockedBHoleNumbers = getUnlockedBHoleKeys(unlockedBHoleCount, leagueSettings)

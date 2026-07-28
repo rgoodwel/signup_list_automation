@@ -225,8 +225,19 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     (sum, k) => sum + ((holes[k] || []).length > 0 ? 1 : 0),
     0,
   )
+  const totalPlayersInWeek = Object.values(holes || {}).reduce(
+    (sum, playersInHole) => sum + (playersInHole?.length ?? 0),
+    0,
+  )
+  const firstUnlockCapacityThreshold = Math.max(0, (openHoleCount - 1) * HOLE_CAPACITY)
+  const progressiveBHoleCount = totalPlayersInWeek >= firstUnlockCapacityThreshold
+    ? Math.floor((totalPlayersInWeek - firstUnlockCapacityThreshold) / HOLE_CAPACITY) + 1
+    : 0
   const computedBHoleCount = allowBGroups
-    ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
+    ? Math.max(
+        Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2)),
+        progressiveBHoleCount,
+      )
     : 0
   const storedBHoleCount = allowBGroups
     ? Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
