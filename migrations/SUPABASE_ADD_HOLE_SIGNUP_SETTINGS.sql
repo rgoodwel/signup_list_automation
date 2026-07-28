@@ -10,3 +10,9 @@ COMMENT ON COLUMN public.leagues.default_open_holes IS
 
 COMMENT ON COLUMN public.leagues.allow_b_groups IS
 'If true, B-group holes can unlock once the default holes are nearly full.';
+
+ALTER TABLE public.weeks
+ADD COLUMN IF NOT EXISTS b_holes_unlocked integer NOT NULL DEFAULT 0;
+
+COMMENT ON COLUMN public.weeks.b_holes_unlocked IS
+'How many B-group holes are currently unlocked for signup.';

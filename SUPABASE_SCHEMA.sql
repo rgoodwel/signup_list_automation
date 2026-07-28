@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS weeks (
   week_key TEXT PRIMARY KEY,  -- "2026-W26" format
   opened_at TIMESTAMP NOT NULL DEFAULT NOW(),
   closed_at TIMESTAMP,
+  b_holes_unlocked INTEGER NOT NULL DEFAULT 0,
   b_groups_unlocked BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW()
 );
