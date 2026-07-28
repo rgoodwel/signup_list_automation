@@ -36,5 +36,8 @@ ALTER TABLE leagues ADD COLUMN IF NOT EXISTS default_open_holes INTEGER NOT NULL
 ALTER TABLE leagues ADD COLUMN IF NOT EXISTS allow_b_groups BOOLEAN NOT NULL DEFAULT TRUE;
 -- If true, B-group holes can unlock once the default holes are nearly full
 
+ALTER TABLE leagues ADD COLUMN IF NOT EXISTS b_hole_unlock_sequence TEXT;
+-- Comma-delimited B-hole numbers defining unlock order (example: 5,1,3,2)
+
 -- Update existing leagues to have sensible defaults if they were created before this migration
 UPDATE leagues SET day_of_week = 'Monday' WHERE day_of_week IS NULL;

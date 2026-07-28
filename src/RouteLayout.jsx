@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import { supabase } from './utils/supabaseClient'
 import { LeagueProvider } from './contexts/LeagueContext'
@@ -10,30 +10,41 @@ export default function RouteLayout() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    async function loadLeague() {
-      try {
-        const { data, error: err } = await supabase
-          .from('leagues')
-          .select('id, slug, name, owner_email, day_of_week, description, requires_password, password, require_email, require_phone, show_email, show_phone, require_additional_player_info, default_open_holes, allow_b_groups')
-          .eq('slug', leagueSlug)
-          .single()
+  const loadLeague = useCallback(async () => {
+    try {
+      const { data, error: err } = await supabase
+        .from('leagues')
+        .select('id, slug, name, owner_email, day_of_week, description, requires_password, password, require_email, require_phone, show_email, show_phone, require_additional_player_info, default_open_holes, allow_b_groups, b_hole_unlock_sequence')
+        .eq('slug', leagueSlug)
+        .single()
 
-        if (err) throw err
-        if (!data) {
-          setError('League not found')
-          return
-        }
-        setLeague(data)
-      } catch (err) {
-        console.error('Error loading league:', err)
-        setError(err.message)
-      } finally {
-        setLoading(false)
+      if (err) throw err
+      if (!data) {
+        setError('League not found')
+        return
       }
+      setLeague(data)
+      setError(null)
+    } catch (err) {
+      console.error('Error loading league:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    loadLeague()
   }, [leagueSlug])
+
+  useEffect(() => {
+    loadLeague()
+  }, [loadLeague])
+
+  useEffect(() => {
+    function handleLeagueSettingsUpdated() {
+      loadLeague()
+    }
+
+    window.addEventListener('league-settings-updated', handleLeagueSettingsUpdated)
+    return () => window.removeEventListener('league-settings-updated', handleLeagueSettingsUpdated)
+  }, [loadLeague])
 
   if (loading) {
     return (

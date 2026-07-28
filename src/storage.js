@@ -10,6 +10,35 @@ export const MAX_HOLE_COUNT = 18
 export const HOLE_CAPACITY = 4
 export const DEFAULT_OPEN_HOLE_COUNT = 9
 
+export function parseBHoleUnlockSequence(sequenceRaw, openHoleCount = DEFAULT_OPEN_HOLE_COUNT) {
+  const maxHoles = Math.max(1, Math.min(openHoleCount, MAX_HOLE_COUNT))
+  const defaultSequence = Array.from({ length: maxHoles }, (_, i) => i + 1)
+
+  if (typeof sequenceRaw !== 'string' || !sequenceRaw.trim()) {
+    return defaultSequence
+  }
+
+  const seen = new Set()
+  const parsed = []
+  const tokens = sequenceRaw
+    .split(',')
+    .map(token => Number.parseInt(token.trim(), 10))
+    .filter(n => Number.isFinite(n) && n >= 1 && n <= maxHoles)
+
+  for (const n of tokens) {
+    if (!seen.has(n)) {
+      seen.add(n)
+      parsed.push(n)
+    }
+  }
+
+  for (const n of defaultSequence) {
+    if (!seen.has(n)) parsed.push(n)
+  }
+
+  return parsed
+}
+
 export function getLeagueSignupConfig(leagueSettings = {}) {
   const parsedOpenHoleCount = Number.parseInt(
     leagueSettings?.default_open_holes ?? DEFAULT_OPEN_HOLE_COUNT,
@@ -20,12 +49,23 @@ export function getLeagueSignupConfig(leagueSettings = {}) {
     Math.min(Number.isNaN(parsedOpenHoleCount) ? DEFAULT_OPEN_HOLE_COUNT : parsedOpenHoleCount, MAX_HOLE_COUNT),
   )
   const allowBGroups = leagueSettings?.allow_b_groups !== false
+  const bHoleUnlockSequence = parseBHoleUnlockSequence(leagueSettings?.b_hole_unlock_sequence, openHoleCount)
 
   return {
     openHoleCount,
     allowBGroups,
+    bHoleUnlockSequence,
     bGroupThreshold: openHoleCount * HOLE_CAPACITY,
   }
+}
+
+export function getUnlockedBHoleKeys(unlockedBHoleCount, leagueSettings = {}) {
+  const { bHoleUnlockSequence } = getLeagueSignupConfig(leagueSettings)
+  const count = Math.max(
+    0,
+    Math.min(Number.parseInt(unlockedBHoleCount ?? 0, 10) || 0, bHoleUnlockSequence.length),
+  )
+  return bHoleUnlockSequence.slice(0, count).map(holeNumber => `${holeNumber}B`)
 }
 
 // ── League context (set by App.jsx when league loads) ──────────────────────
@@ -647,11 +687,13 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       .filter(p => p && p.name && p.name.trim())
       .slice(0, 3)
 
-    const { openHoleCount, allowBGroups, bGroupThreshold } = getLeagueSignupConfig(leagueSettings)
+    const { openHoleCount, allowBGroups } = getLeagueSignupConfig(leagueSettings)
     const nonEmptyAGroupHoles = allowBGroups ? await countNonEmptyAGroupHoles(weekKey, openHoleCount) : 0
     const computedBHoleCount = allowBGroups ? Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2)) : 0
     const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
     const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
+    const unlockedBHoleNumbers = getUnlockedBHoleKeys(unlockedBHoleCount, leagueSettings)
+      .map(holeKey => Number.parseInt(holeKey.replace(/B$/, ''), 10))
     
     // Validate all additional players.
     // If require_additional_player_info is false, additional email/phone are optional.
@@ -733,7 +775,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       
       // If A-group has no good fit and B-group has unlocked holes, try B-group
       if (!bestHole && allowBGroups && unlockedBHoleCount > 0) {
-        for (let i = 1; i <= unlockedBHoleCount; i++) {
+        for (const i of unlockedBHoleNumbers) {
           const players = await getHolePlayers(weekKey, String(i), 'B')
           const available = HOLE_CAPACITY - players.length
           
@@ -773,7 +815,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         }
       }
 
-      if (holeKey.endsWith('B') && unlockedBHoleCount < requestedHoleNumber) {
+      if (holeKey.endsWith('B') && !unlockedBHoleNumbers.includes(requestedHoleNumber)) {
         return {
           ok: false,
           reason: `Group B hole ${requestedHoleNumber} is not yet available.`,
@@ -857,7 +899,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
 
     if (allowBGroups) {
       const nonEmptyAGroupHoles = await countNonEmptyAGroupHoles(weekKey, openHoleCount)
-      const unlockedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 1))
+      const unlockedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
       const currentUnlockedBHoles = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || 0
 
       if (unlockedBHoleCount !== currentUnlockedBHoles) {
@@ -953,7 +995,9 @@ export async function movePlayerBetweenHoles({ weekKey, fromHole, toHole, player
     const computedBHoleCount = Math.max(0, nonEmptyAGroupHoles - (openHoleCount - 2))
     const storedBHoleCount = Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
     const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
-    if (toKey.endsWith('B') && unlockedBHoleCount < toHoleNumber) {
+    const unlockedBHoleNumbers = getUnlockedBHoleKeys(unlockedBHoleCount, leagueSettings)
+      .map(holeKey => Number.parseInt(holeKey.replace(/B$/, ''), 10))
+    if (toKey.endsWith('B') && !unlockedBHoleNumbers.includes(toHoleNumber)) {
       return { ok: false, reason: `Group B hole ${toHoleNumber} is not yet available.` }
     }
 
@@ -1155,7 +1199,7 @@ export async function getLeagueSettings(leagueId) {
   try {
     const { data, error } = await supabase
       .from('leagues')
-      .select('day_of_week, description, requires_password, password, require_email, require_phone, require_additional_player_info, default_open_holes, allow_b_groups')
+      .select('day_of_week, description, requires_password, password, require_email, require_phone, require_additional_player_info, default_open_holes, allow_b_groups, b_hole_unlock_sequence')
       .eq('id', leagueId)
       .single()
 
@@ -1173,6 +1217,7 @@ export async function getLeagueSettings(leagueId) {
         ? Math.max(1, Math.min(Number.parseInt(data?.default_open_holes, 10), MAX_HOLE_COUNT))
         : DEFAULT_OPEN_HOLE_COUNT,
       allowBGroups: data?.allow_b_groups !== false,
+      bHoleUnlockSequence: data?.b_hole_unlock_sequence || null,
     }
   } catch (err) {
     console.error('Error fetching league settings:', err)
@@ -1187,6 +1232,7 @@ export async function getLeagueSettings(leagueId) {
       requireAdditionalPlayerInfo: true,
       defaultOpenHoles: DEFAULT_OPEN_HOLE_COUNT,
       allowBGroups: true,
+      bHoleUnlockSequence: null,
     }
   }
 }

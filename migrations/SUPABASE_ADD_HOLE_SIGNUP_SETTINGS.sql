@@ -3,13 +3,17 @@
 
 ALTER TABLE public.leagues
 ADD COLUMN IF NOT EXISTS default_open_holes integer NOT NULL DEFAULT 9,
-ADD COLUMN IF NOT EXISTS allow_b_groups boolean NOT NULL DEFAULT true;
+ADD COLUMN IF NOT EXISTS allow_b_groups boolean NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS b_hole_unlock_sequence text;
 
 COMMENT ON COLUMN public.leagues.default_open_holes IS
 'How many A-group holes are open for signup by default.';
 
 COMMENT ON COLUMN public.leagues.allow_b_groups IS
 'If true, B-group holes can unlock once the default holes are nearly full.';
+
+COMMENT ON COLUMN public.leagues.b_hole_unlock_sequence IS
+'Comma-delimited B-hole numbers defining unlock order (example: 5,1,3,2).';
 
 ALTER TABLE public.weeks
 ADD COLUMN IF NOT EXISTS b_holes_unlocked integer NOT NULL DEFAULT 0;

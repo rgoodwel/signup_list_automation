@@ -31,6 +31,7 @@ export function useLeagueSettings() {
       ? Math.max(1, Math.min(Number.parseInt(league?.default_open_holes, 10), MAX_HOLE_COUNT))
       : 6,
     allowBGroups: league?.allow_b_groups !== false,
+    bHoleUnlockSequence: league?.b_hole_unlock_sequence || null,
   }
 }
 

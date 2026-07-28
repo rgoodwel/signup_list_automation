@@ -9,6 +9,7 @@ import {
   isFullName,
   HOLE_CAPACITY,
   getLeagueSignupConfig,
+  getUnlockedBHoleKeys,
 } from './storage'
 import { supabase } from './utils/supabaseClient'
 import moveIcon from './utils/move_icon.png'
@@ -232,8 +233,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     : 0
   const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
   const bHoleKeys = useMemo(
-    () => (allowBGroups ? Array.from({ length: unlockedBHoleCount }, (_, i) => `${i + 1}B`) : []),
-    [allowBGroups, unlockedBHoleCount],
+    () => (allowBGroups ? getUnlockedBHoleKeys(unlockedBHoleCount, league) : []),
+    [allowBGroups, unlockedBHoleCount, league],
   )
   const occupiedBHoleKeys = useMemo(
     () => Object.keys(holes || {}).filter(k => k.endsWith('B') && (holes[k]?.length ?? 0) > 0),
@@ -572,6 +573,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         require_additional_player_info: league?.require_additional_player_info,
         default_open_holes: league?.default_open_holes,
         allow_b_groups: league?.allow_b_groups,
+        b_hole_unlock_sequence: league?.b_hole_unlock_sequence,
       },
     })
     setIsSubmitting(false)
@@ -604,7 +606,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         hint = 'You can only sign up once per week. If you need to change your hole or group, use the icon on the hole cards or drag and drop players.'
       } else if (reason.includes("Group B hole") && reason.includes("not yet available")) {
         title = 'Group B Not Available'
-        hint = `Only the first ${unlockedBHoleCount} B hole${unlockedBHoleCount !== 1 ? 's' : ''} are available right now.`
+        hint = `Available Group B holes right now: ${visibleBHoleKeys.join(', ') || 'none'}.`
       } else if (reason.includes('not open for signup yet')) {
         title = 'Hole Not Open'
         hint = `This league only opens the first ${openHoleCount} hole${openHoleCount !== 1 ? 's' : ''} by default.`
@@ -703,6 +705,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         leagueSettings: {
           default_open_holes: league?.default_open_holes,
           allow_b_groups: league?.allow_b_groups,
+          b_hole_unlock_sequence: league?.b_hole_unlock_sequence,
         },
       })
       if (result.ok) {
@@ -773,6 +776,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
           leagueSettings: {
             default_open_holes: league?.default_open_holes,
             allow_b_groups: league?.allow_b_groups,
+            b_hole_unlock_sequence: league?.b_hole_unlock_sequence,
           },
         })
         if (result.ok) {
