@@ -14,10 +14,24 @@ const DAY_OPTIONS = [
 ]
 
 const HOLE_OPTIONS = Array.from({ length: MAX_HOLE_COUNT }, (_, i) => i + 1)
+const DESCRIPTION_MAX_LINES = 3
+const DESCRIPTION_MAX_CHARS_PER_LINE = 40
 
 function toBoolean(value, fallback = false) {
   if (typeof value === 'boolean') return value
   return fallback
+}
+
+function normalizeLeagueDescription(value) {
+  if (!value) return ''
+
+  const lines = String(value)
+    .replace(/\r\n/g, '\n')
+    .split(/[;\n]/)
+    .slice(0, DESCRIPTION_MAX_LINES)
+    .map(line => line.trim().slice(0, DESCRIPTION_MAX_CHARS_PER_LINE))
+
+  return lines.join('; ')
 }
 
 export default function LeagueSettingsPanel({ onSaved }) {
@@ -104,7 +118,7 @@ export default function LeagueSettingsPanel({ onSaved }) {
 
     const payload = {
       day_of_week: DAY_OPTIONS.includes(form.day_of_week) ? form.day_of_week : 'Monday',
-      description: form.description?.trim() || null,
+      description: normalizeLeagueDescription(form.description)?.trim() || null,
       requires_password: !!form.requires_password,
       password: form.requires_password ? (form.password || '').trim() : null,
       show_email: showEmail,
@@ -172,9 +186,12 @@ export default function LeagueSettingsPanel({ onSaved }) {
               <textarea
                 rows={3}
                 value={form.description}
-                onChange={(e) => updateField('description', e.target.value)}
+                onChange={(e) => updateField('description', normalizeLeagueDescription(e.target.value))}
                 placeholder="Shown to players on the signup page"
               />
+              <small className="muted">
+                Up to 3 lines, 40 characters per line. Separate lines with a semicolon (;).
+              </small>
             </label>
 
             <label className="league-settings-check league-settings-field--full">
