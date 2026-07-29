@@ -180,6 +180,7 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .league-settings-field span{font-size:13px;color:var(--muted);font-weight:600}
 .league-settings-field input,.league-settings-field select,.league-settings-field textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:15px}
 .league-settings-field--full{grid-column:1/-1}
+.league-settings-subtitle{margin:2px 0 -2px;font-size:12px;line-height:1.45}
 .league-settings-check{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#faf8f3}
 .league-settings-check input{width:16px;height:16px}
 .league-settings-check span{font-size:14px}
