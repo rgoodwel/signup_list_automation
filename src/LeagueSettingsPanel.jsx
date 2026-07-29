@@ -190,16 +190,17 @@ export default function LeagueSettingsPanel({ onSaved }) {
               <span>Require League Password to Signup</span>
             </label>
 
-            <label className="league-settings-field league-settings-field--full">
-              <span>League Password</span>
-              <input
-                type="text"
-                value={form.password}
-                onChange={(e) => updateField('password', e.target.value)}
-                disabled={!form.requires_password}
-                placeholder="Optional when password gate is disabled"
-              />
-            </label>
+            {form.requires_password && (
+              <label className="league-settings-field league-settings-field--full">
+                <span>League Password</span>
+                <input
+                  type="text"
+                  value={form.password}
+                  onChange={(e) => updateField('password', e.target.value)}
+                  placeholder="Enter password players must use to signup"
+                />
+              </label>
+            )}
           </div>
         </div>
 
@@ -268,39 +269,43 @@ export default function LeagueSettingsPanel({ onSaved }) {
 
         <div className="league-settings-section">
           <h3>Hole and Group Settings</h3>
-          <div className="league-settings-grid">
-            <label className="league-settings-field">
-              <span>Number of Holes</span>
-              <select
-                value={form.default_open_holes}
-                onChange={(e) => updateField('default_open_holes', Number.parseInt(e.target.value, 10))}
-              >
-                {HOLE_OPTIONS.map(holeCount => (
-                  <option key={holeCount} value={holeCount}>
-                    {holeCount}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="league-settings-rows">
+            <div className="league-settings-row">
+              <label className="league-settings-field league-settings-field--compact">
+                <span>Number of Holes</span>
+                <select
+                  value={form.default_open_holes}
+                  onChange={(e) => updateField('default_open_holes', Number.parseInt(e.target.value, 10))}
+                >
+                  {HOLE_OPTIONS.map(holeCount => (
+                    <option key={holeCount} value={holeCount}>
+                      {holeCount}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
-            <label className="league-settings-check">
-              <input
-                type="checkbox"
-                checked={form.allow_b_groups}
-                onChange={handleCheckbox('allow_b_groups')}
-              />
-              <span>Enable B Groups</span>
-            </label>
+            <div className="league-settings-row league-settings-row--hole-group">
+              <label className="league-settings-check">
+                <input
+                  type="checkbox"
+                  checked={form.allow_b_groups}
+                  onChange={handleCheckbox('allow_b_groups')}
+                />
+                <span>Enable B Holes/Groups</span>
+              </label>
 
-            <label className="league-settings-field league-settings-field--full">
-              <span>B Hole/Group Unlock Sequence (comma-separated)</span>
-              <input
-                type="text"
-                value={form.b_hole_unlock_sequence}
-                onChange={(e) => updateField('b_hole_unlock_sequence', e.target.value)}
-                placeholder="Example: 5,1,3,2,4,6,7,8,9"
-              />
-            </label>
+              <label className="league-settings-field league-settings-field--grow">
+                <span>B Hole/Group Unlock Sequence (comma-separated)</span>
+                <input
+                  type="text"
+                  value={form.b_hole_unlock_sequence}
+                  onChange={(e) => updateField('b_hole_unlock_sequence', e.target.value)}
+                  placeholder="Example: 5,1,3,2,4,6,7,8,9"
+                />
+              </label>
+            </div>
           </div>
         </div>
 

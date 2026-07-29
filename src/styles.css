@@ -180,11 +180,16 @@ header h1{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;color:#1532
 .league-settings-field span{font-size:13px;color:var(--muted);font-weight:600}
 .league-settings-field input,.league-settings-field select,.league-settings-field textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:inherit;font-size:15px}
 .league-settings-field--full{grid-column:1/-1}
+.league-settings-field--compact{max-width:220px}
+.league-settings-field--grow{flex:1;min-width:280px}
 .league-settings-subtitle{margin:2px 0 -2px;font-size:12px;line-height:1.45}
 .league-settings-check{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#faf8f3}
 .league-settings-check input{width:16px;height:16px}
 .league-settings-check span{font-size:14px}
 .league-settings-actions{display:flex;justify-content:flex-start}
+.league-settings-rows{display:flex;flex-direction:column;gap:12px}
+.league-settings-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.league-settings-row--hole-group{align-items:center}
 
 /* ── Legacy ── */
 .empty{color:var(--muted);margin-top:4px}
@@ -208,6 +213,9 @@ footer{margin-top:24px;color:var(--muted)}
   .header-actions{align-items:flex-start}
   .holes-grid{grid-template-columns:1fr}
   .league-settings-grid{grid-template-columns:1fr}
+  .league-settings-field--compact{max-width:100%}
+  .league-settings-field--grow{min-width:100%}
+  .league-settings-row--hole-group{align-items:stretch}
   .intro-video-modal-card{padding:12px}
   .intro-video-modal-header h2{font-size:17px}
   .intro-video-link{font-size:13px}
