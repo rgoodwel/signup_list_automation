@@ -5,6 +5,7 @@ import PlayerHistoryTable from './PlayerHistoryTable'
 import TrendChart from './TrendChart'
 import ExportButtons from './ExportButtons'
 import AuditLogsPanel from './AuditLogsPanel'
+import LeagueSettingsPanel from './LeagueSettingsPanel'
 
 // ── PIN gate ──────────────────────────────────────────────────────────────────
 function PinSetup({ onSet }) {
@@ -101,6 +102,7 @@ function PinLogin({ onSuccess }) {
 // ── Admin tabs ────────────────────────────────────────────────────────────────
 
 const TABS = [
+  { key: 'settings', label: 'League Settings' },
   { key: 'week',    label: 'Current Week' },
   { key: 'logs',    label: 'Logs' },
   { key: 'history', label: 'Player History' },
@@ -111,7 +113,7 @@ const TABS = [
 export default function AdminView({ players, weeks, onRefresh }) {
   const [savedPin, setSavedPin] = useState(null)
   const [authed, setAuthed]   = useState(false)
-  const [tab, setTab]         = useState('week')
+  const [tab, setTab]         = useState('settings')
   const [loading, setLoading] = useState(true)
 
   // Load admin PIN on mount
@@ -153,11 +155,9 @@ export default function AdminView({ players, weeks, onRefresh }) {
             {t.label}
           </button>
         ))}
-        <button className="tab-btn tab-btn--logout" onClick={() => setAuthed(false)}>
-          Log out
-        </button>
       </div>
 
+      {tab === 'settings' && <LeagueSettingsPanel onSaved={onRefresh} />}
       {tab === 'week'    && <CurrentWeekPanel onRefresh={onRefresh} />}
       {tab === 'logs'    && <AuditLogsPanel />}
       {tab === 'history' && <PlayerHistoryTable players={players} weeks={weeks} />}

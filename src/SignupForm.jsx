@@ -7,9 +7,10 @@ import {
   weekKeyToLabel,
   weekKeyToRoundDateLabel,
   isFullName,
-  HOLE_COUNT,
   HOLE_CAPACITY,
-  B_GROUP_THRESHOLD,
+  MIN_FULLY_AVAILABLE_HOLES,
+  getLeagueSignupConfig,
+  getUnlockedBHoleKeys,
 } from './storage'
 import { supabase } from './utils/supabaseClient'
 import moveIcon from './utils/move_icon.png'
@@ -217,10 +218,41 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const [loading, setLoading] = useState(true)
   const [holes, setHoles] = useState({})
 
+  const { openHoleCount, allowBGroups, bGroupThreshold } = getLeagueSignupConfig(league)
+
   // Define hole keys early so they can be used in useEffect
-  // Memoize to ensure they're stable across renders (never changes since HOLE_COUNT is constant)
-  const holeKeys = useMemo(() => Array.from({ length: HOLE_COUNT }, (_, i) => String(i + 1)), [])
-  const bHoleKeys = useMemo(() => Array.from({ length: HOLE_COUNT }, (_, i) => `${i + 1}B`), [])
+  const holeKeys = useMemo(() => Array.from({ length: openHoleCount }, (_, i) => String(i + 1)), [openHoleCount])
+  const nonEmptyAGroupHoles = holeKeys.reduce(
+    (sum, k) => sum + ((holes[k] || []).length > 0 ? 1 : 0),
+    0,
+  )
+  const nonEmptyBGroupHoles = Object.keys(holes || {}).reduce(
+    (sum, holeKey) => sum + (holeKey.endsWith('B') && (holes[holeKey]?.length ?? 0) > 0 ? 1 : 0),
+    0,
+  )
+  const computedBHoleCount = allowBGroups
+    ? Math.max(0, MIN_FULLY_AVAILABLE_HOLES - (openHoleCount - nonEmptyAGroupHoles) + nonEmptyBGroupHoles)
+    : 0
+  const storedBHoleCount = allowBGroups
+    ? Number.parseInt(week?.b_holes_unlocked ?? 0, 10) || (week?.b_groups_unlocked ? openHoleCount : 0)
+    : 0
+  const unlockedBHoleCount = Math.max(storedBHoleCount, computedBHoleCount)
+  const bHoleKeys = useMemo(
+    () => (allowBGroups ? getUnlockedBHoleKeys(unlockedBHoleCount, league) : []),
+    [allowBGroups, unlockedBHoleCount, league],
+  )
+  const occupiedBHoleKeys = useMemo(
+    () => Object.keys(holes || {}).filter(k => k.endsWith('B') && (holes[k]?.length ?? 0) > 0),
+    [holes],
+  )
+  const visibleBHoleKeys = useMemo(() => {
+    const merged = new Set([...bHoleKeys, ...occupiedBHoleKeys])
+    return Array.from(merged).sort((a, b) => {
+      const aNum = parseInt(a.replace(/B$/, ''), 10)
+      const bNum = parseInt(b.replace(/B$/, ''), 10)
+      return aNum - bNum
+    })
+  }, [bHoleKeys, occupiedBHoleKeys])
 
   // Fetch current week and populate holes display
   // Initialize from props passed by App
@@ -248,13 +280,12 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
             // Group players by hole
             for (const row of weeklyPlayers) {
               const holeKey = row.hole_group === 'B' ? `${row.hole_number}B` : row.hole_number
-              if (holesMap[holeKey]) {
-                holesMap[holeKey].push({
-                  id: row.id,
-                  name: row.player_name,
-                  email: row.player_email,
-                })
-              }
+              if (!holesMap[holeKey]) holesMap[holeKey] = []
+              holesMap[holeKey].push({
+                id: row.id,
+                name: row.player_name,
+                email: row.player_email,
+              })
             }
             setHoles(holesMap)
           }
@@ -264,7 +295,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       }
       loadHoles()
     }
-  }, [propWeekKey, propWeek, league?.id])
+  }, [propWeekKey, propWeek, league?.id, openHoleCount, allowBGroups, unlockedBHoleCount])
 
   // Real-time subscription to weekly_players changes
   useEffect(() => {
@@ -290,7 +321,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
     return () => {
       channel.unsubscribe()
     }
-  }, [weekKey, league?.id])
+  }, [weekKey, league?.id, openHoleCount, allowBGroups, unlockedBHoleCount])
 
   // Sorted list of known players for autocomplete suggestions
   const playerSuggestions = Object.values(players || {})
@@ -301,17 +332,17 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const isWeekLocked   = weekKey && week && week.closed_at
   const isWeekFinalized = !weekKey  // No current week means it was finalized
   const roundDateLabel = weekKey ? weekKeyToRoundDateLabel(weekKey, league?.day_of_week) : null
-  const bUnlocked = week?.b_groups_unlocked || false
+  const bUnlocked = allowBGroups && visibleBHoleKeys.length > 0
   const requireAdditionalPlayerInfo = league?.require_additional_player_info !== false
   const totalAPlayers = holeKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
-  const totalBPlayers = bHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
+  const totalBPlayers = visibleBHoleKeys.reduce((sum, k) => sum + (holes[k]?.length ?? 0), 0)
   const totalAllPlayers = totalAPlayers + totalBPlayers
-  const bUnlockRemaining = Math.max(0, B_GROUP_THRESHOLD - totalAPlayers)
+  const bUnlockRemaining = allowBGroups ? Math.max(0, (openHoleCount - 1) - nonEmptyAGroupHoles) : 0
 
   // Derived values for bulk move modal — recomputed every render so checkboxes update the list instantly
   const bulkSelectedCount = bulkMove?.selectedPlayerIds.size ?? 0
   const bulkCandidateHoles = bulkMove
-    ? [...holeKeys, ...(bUnlocked ? bHoleKeys : [])].filter(h => h !== bulkMove.sourceHole)
+    ? [...holeKeys, ...(bUnlocked ? visibleBHoleKeys : [])].filter(h => h !== bulkMove.sourceHole)
     : []
   const bulkAvailableHoles = bulkCandidateHoles.filter(
     h => (holes[h] || []).length + bulkSelectedCount <= HOLE_CAPACITY
@@ -354,13 +385,12 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         )
         for (const row of weeklyPlayers) {
           const holeKey = row.hole_group === 'B' ? `${row.hole_number}B` : row.hole_number
-          if (holesMap[holeKey]) {
-            holesMap[holeKey].push({
-              id: row.id,
-              name: row.player_name,
-              email: row.player_email,
-            })
-          }
+          if (!holesMap[holeKey]) holesMap[holeKey] = []
+          holesMap[holeKey].push({
+            id: row.id,
+            name: row.player_name,
+            email: row.player_email,
+          })
         }
         setHoles(holesMap)
       }
@@ -546,6 +576,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         show_email: league?.show_email,
         show_phone: league?.show_phone,
         require_additional_player_info: league?.require_additional_player_info,
+        default_open_holes: league?.default_open_holes,
+        allow_b_groups: league?.allow_b_groups,
+        b_hole_unlock_sequence: league?.b_hole_unlock_sequence,
       },
     })
     setIsSubmitting(false)
@@ -576,9 +609,15 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       if (reason.includes("already signed up")) {
         title = 'Already Signed Up'
         hint = 'You can only sign up once per week. If you need to change your hole or group, use the icon on the hole cards or drag and drop players.'
-      } else if (reason.includes("Group B holes are not yet available")) {
+      } else if (reason.includes("Group B hole") && reason.includes("not yet available")) {
         title = 'Group B Not Available'
-        hint = `Group B holes unlock once ${B_GROUP_THRESHOLD} players have signed up. Please choose a Group A hole.`
+        hint = `Available Group B holes right now: ${visibleBHoleKeys.join(', ') || 'none'}.`
+      } else if (reason.includes('not open for signup yet')) {
+        title = 'Hole Not Open'
+        hint = `This league only opens the first ${openHoleCount} hole${openHoleCount !== 1 ? 's' : ''} by default.`
+      } else if (reason.includes('not available for this league')) {
+        title = 'Group B Unavailable'
+        hint = 'This league does not allow Group B holes.'
       } else if (reason.includes("does not have enough space")) {
         title = 'Hole Full'
         hint = 'Choose a different hole with available space, or reduce the number of additional players in your group.'
@@ -668,6 +707,11 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
         fromHole: data.holeKey,
         toHole,
         playerId: data.playerId,
+        leagueSettings: {
+          default_open_holes: league?.default_open_holes,
+          allow_b_groups: league?.allow_b_groups,
+          b_hole_unlock_sequence: league?.b_hole_unlock_sequence,
+        },
       })
       if (result.ok) {
         // Get player name for success message
@@ -734,6 +778,11 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
           fromHole: sourceHole,
           toHole: destinationHole,
           playerId: player.id,
+          leagueSettings: {
+            default_open_holes: league?.default_open_holes,
+            allow_b_groups: league?.allow_b_groups,
+            b_hole_unlock_sequence: league?.b_hole_unlock_sequence,
+          },
         })
         if (result.ok) {
           successCount++
@@ -1002,9 +1051,9 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
                 </optgroup>
               )}
               {/* Group B holes with available spots (only if unlocked) */}
-              {bUnlocked && bHoleKeys.some(k => canFitGroup(k)) && (
+              {bUnlocked && visibleBHoleKeys.some(k => canFitGroup(k)) && (
                 <optgroup label="Group B">
-                  {bHoleKeys
+                  {visibleBHoleKeys
                     .filter(k => canFitGroup(k))
                     .map(holeKey => (
                       <option key={holeKey} value={holeKey}>
@@ -1071,16 +1120,16 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
               </div>
             ))}
           </div>
-          {!bUnlocked && week && bUnlockRemaining > 0 && (
+          {allowBGroups && !bUnlocked && week && bUnlockRemaining > 0 && (
             <p className="b-group-notice">
-              Group B holes unlock when {bUnlockRemaining} more player{bUnlockRemaining !== 1 ? 's' : ''} sign up ({totalAPlayers}/{B_GROUP_THRESHOLD}).
+              Group B hole 1 unlocks when {bUnlockRemaining} more default hole{bUnlockRemaining !== 1 ? 's' : ''} have at least one signup.
             </p>
           )}
           {bUnlocked && (
             <>
               <h3 className="b-group-heading">Group B</h3>
               <div className="holes-grid">
-                {bHoleKeys.map(holeKey => (
+                {visibleBHoleKeys.map(holeKey => (
                   <div
                     key={holeKey}
                     className={`hole-card hole-card--b-group${(holes[holeKey] || []).length >= HOLE_CAPACITY ? ' hole-card--full' : ''}`}
