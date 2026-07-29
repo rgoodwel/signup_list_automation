@@ -40,15 +40,20 @@ export default function LeagueSettingsPanel({ onSaved }) {
   })
 
   useEffect(() => {
+    const requireEmail = toBoolean(league?.require_email, true)
+    const requirePhone = toBoolean(league?.require_phone, true)
+    const showEmail = requireEmail ? true : toBoolean(league?.show_email, true)
+    const showPhone = requirePhone ? true : toBoolean(league?.show_phone, true)
+
     setForm({
       day_of_week: league?.day_of_week || 'Monday',
       description: league?.description || '',
       requires_password: toBoolean(league?.requires_password, false),
       password: league?.password || '',
-      show_email: toBoolean(league?.show_email, true),
-      require_email: toBoolean(league?.require_email, true),
-      show_phone: toBoolean(league?.show_phone, true),
-      require_phone: toBoolean(league?.require_phone, true),
+      show_email: showEmail,
+      require_email: requireEmail,
+      show_phone: showPhone,
+      require_phone: requirePhone,
       require_additional_player_info: toBoolean(league?.require_additional_player_info, true),
       default_open_holes: Number.isFinite(Number.parseInt(league?.default_open_holes, 10))
         ? Math.max(1, Math.min(Number.parseInt(league?.default_open_holes, 10), MAX_HOLE_COUNT))
@@ -76,6 +81,10 @@ export default function LeagueSettingsPanel({ onSaved }) {
         setForm(prev => ({ ...prev, show_email: false, require_email: false }))
       } else if (field === 'show_phone' && !checked) {
         setForm(prev => ({ ...prev, show_phone: false, require_phone: false }))
+      } else if (field === 'require_email') {
+        setForm(prev => ({ ...prev, require_email: checked, show_email: checked ? true : prev.show_email }))
+      } else if (field === 'require_phone') {
+        setForm(prev => ({ ...prev, require_phone: checked, show_phone: checked ? true : prev.show_phone }))
       } else {
         updateField(field, checked)
       }
@@ -91,16 +100,20 @@ export default function LeagueSettingsPanel({ onSaved }) {
       Math.min(Number.parseInt(form.default_open_holes, 10) || 9, MAX_HOLE_COUNT),
     )
     const normalizedSequence = parseBHoleUnlockSequence(form.b_hole_unlock_sequence, defaultOpenHoles).join(',')
+    const requireEmail = !!form.require_email
+    const requirePhone = !!form.require_phone
+    const showEmail = requireEmail ? true : !!form.show_email
+    const showPhone = requirePhone ? true : !!form.show_phone
 
     const payload = {
       day_of_week: DAY_OPTIONS.includes(form.day_of_week) ? form.day_of_week : 'Monday',
       description: form.description?.trim() || null,
       requires_password: !!form.requires_password,
       password: form.requires_password ? (form.password || '').trim() : null,
-      show_email: !!form.show_email,
-      require_email: form.show_email ? !!form.require_email : false,
-      show_phone: !!form.show_phone,
-      require_phone: form.show_phone ? !!form.require_phone : false,
+      show_email: showEmail,
+      require_email: requireEmail,
+      show_phone: showPhone,
+      require_phone: requirePhone,
       require_additional_player_info: !!form.require_additional_player_info,
       default_open_holes: defaultOpenHoles,
       allow_b_groups: !!form.allow_b_groups,
@@ -118,6 +131,10 @@ export default function LeagueSettingsPanel({ onSaved }) {
 
       setForm(prev => ({
         ...prev,
+        show_email: showEmail,
+        require_email: requireEmail,
+        show_phone: showPhone,
+        require_phone: requirePhone,
         default_open_holes: defaultOpenHoles,
         b_hole_unlock_sequence: normalizedSequence,
       }))
@@ -197,7 +214,12 @@ export default function LeagueSettingsPanel({ onSaved }) {
           </label>
 
           <label className="league-settings-check">
-            <input type="checkbox" checked={form.show_email} onChange={handleCheckbox('show_email')} />
+            <input
+              type="checkbox"
+              checked={form.show_email}
+              onChange={handleCheckbox('show_email')}
+              disabled={form.require_email}
+            />
             <span>Show Email Field</span>
           </label>
 
@@ -212,7 +234,12 @@ export default function LeagueSettingsPanel({ onSaved }) {
           </label>
 
           <label className="league-settings-check">
-            <input type="checkbox" checked={form.show_phone} onChange={handleCheckbox('show_phone')} />
+            <input
+              type="checkbox"
+              checked={form.show_phone}
+              onChange={handleCheckbox('show_phone')}
+              disabled={form.require_phone}
+            />
             <span>Show Phone Field</span>
           </label>
 
