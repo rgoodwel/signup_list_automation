@@ -29,7 +29,7 @@ function normalizeLeagueDescription(value) {
     .replace(/\r\n/g, '\n')
     .split(/[;\n]/)
     .slice(0, DESCRIPTION_MAX_LINES)
-    .map(line => line.trim().slice(0, DESCRIPTION_MAX_CHARS_PER_LINE))
+    .map(line => line.slice(0, DESCRIPTION_MAX_CHARS_PER_LINE))
 
   return lines.join('; ')
 }
@@ -118,7 +118,7 @@ export default function LeagueSettingsPanel({ onSaved }) {
 
     const payload = {
       day_of_week: DAY_OPTIONS.includes(form.day_of_week) ? form.day_of_week : 'Monday',
-      description: normalizeLeagueDescription(form.description)?.trim() || null,
+      description: normalizeLeagueDescription(form.description) || null,
       requires_password: !!form.requires_password,
       password: form.requires_password ? (form.password || '').trim() : null,
       show_email: showEmail,
