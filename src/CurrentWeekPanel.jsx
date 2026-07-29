@@ -10,8 +10,6 @@ import {
   getNextWeekKey,
   weekKeyToLabel,
   compareWeekKeys,
-  getLeagueSignupConfig,
-  parseBHoleUnlockSequence,
 } from './storage'
 import { supabase } from './utils/supabaseClient'
 
@@ -22,13 +20,6 @@ export default function CurrentWeekPanel({ onRefresh }) {
   const [weekKey, setWeekKey] = useState(null)
   const [week, setWeek] = useState(null)
   const [lastWeekKey, setLastWeekKey] = useState(null) // most recent week (for computing next)
-  const [bHoleUnlockSequenceInput, setBHoleUnlockSequenceInput] = useState('')
-  const [savingSequence, setSavingSequence] = useState(false)
-  const [sequenceMsg, setSequenceMsg] = useState('')
-
-  useEffect(() => {
-    setBHoleUnlockSequenceInput(league?.b_hole_unlock_sequence || '')
-  }, [league?.b_hole_unlock_sequence])
 
   // Fetch current week and players from Supabase
   useEffect(() => {
@@ -145,33 +136,6 @@ export default function CurrentWeekPanel({ onRefresh }) {
     }
   }
 
-  async function handleSaveBHoleSequence() {
-    if (!league?.id) return
-    const { openHoleCount } = getLeagueSignupConfig(league)
-    const normalizedSequence = parseBHoleUnlockSequence(bHoleUnlockSequenceInput, openHoleCount)
-    const normalizedValue = normalizedSequence.join(',')
-
-    try {
-      setSavingSequence(true)
-      setSequenceMsg('')
-      const { error } = await supabase
-        .from('leagues')
-        .update({ b_hole_unlock_sequence: normalizedValue })
-        .eq('id', league.id)
-
-      if (error) throw error
-
-      setBHoleUnlockSequenceInput(normalizedValue)
-      setSequenceMsg(`Saved. Effective unlock order: ${normalizedValue}`)
-      window.dispatchEvent(new CustomEvent('league-settings-updated'))
-    } catch (err) {
-      console.error('Error saving B-hole unlock sequence:', err)
-      setSequenceMsg('Could not save B-hole unlock order. Please try again.')
-    } finally {
-      setSavingSequence(false)
-    }
-  }
-
   return (
     <div className="panel">
       <div className="panel-header">
@@ -192,26 +156,6 @@ export default function CurrentWeekPanel({ onRefresh }) {
             </button>
           )}
         </div>
-      </div>
-
-      <div className="panel" style={{ marginBottom: '12px' }}>
-        <h3 style={{ marginTop: 0 }}>B-Hole Unlock Order</h3>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Enter comma-separated B hole numbers in unlock order (example: 5,1,3,2,4,6,7,8,9).
-        </p>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            value={bHoleUnlockSequenceInput}
-            onChange={(e) => { setBHoleUnlockSequenceInput(e.target.value); setSequenceMsg('') }}
-            placeholder="1,2,3,4,5,6,7,8,9"
-            style={{ minWidth: '320px' }}
-          />
-          <button className="btn btn-primary" onClick={handleSaveBHoleSequence} disabled={savingSequence}>
-            {savingSequence ? 'Saving...' : 'Save Order'}
-          </button>
-        </div>
-        {sequenceMsg && <p className="muted" style={{ marginBottom: 0 }}>{sequenceMsg}</p>}
       </div>
 
       {isOpen ? (

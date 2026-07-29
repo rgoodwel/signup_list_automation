@@ -289,9 +289,6 @@ export default function LeagueSettingsPanel({ onSaved }) {
             <div className="league-settings-row league-settings-row--hole-group">
               <div className="league-settings-bgroup-panel league-settings-field--full">
                 <div className="league-settings-bgroup-header">
-                  <p className="muted league-settings-subtitle league-settings-subtitle--title">
-                    B Group Settings
-                  </p>
                   <label className="league-settings-check league-settings-check--inline">
                     <input
                       type="checkbox"
