@@ -159,128 +159,141 @@ export default function LeagueSettingsPanel({ onSaved }) {
       </div>
 
       <form onSubmit={handleSave} className="league-settings-form">
-        <div className="league-settings-grid">
-          <label className="league-settings-field">
-            <span>League Day</span>
-            <select
-              value={form.day_of_week}
-              onChange={(e) => updateField('day_of_week', e.target.value)}
-            >
-              {DAY_OPTIONS.map(day => (
-                <option key={day} value={day}>{day}</option>
-              ))}
-            </select>
-          </label>
+        <div className="league-settings-section">
+          <h3>1) General League Setup</h3>
+          <div className="league-settings-grid">
+            <label className="league-settings-field">
+              <span>League Day</span>
+              <select
+                value={form.day_of_week}
+                onChange={(e) => updateField('day_of_week', e.target.value)}
+              >
+                {DAY_OPTIONS.map(day => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </label>
 
-          <label className="league-settings-field">
-            <span>Default Open A Holes</span>
-            <input
-              type="number"
-              min={1}
-              max={MAX_HOLE_COUNT}
-              value={form.default_open_holes}
-              onChange={(e) => updateField('default_open_holes', e.target.value)}
-            />
-          </label>
+            <label className="league-settings-check">
+              <input
+                type="checkbox"
+                checked={form.requires_password}
+                onChange={handleCheckbox('requires_password')}
+              />
+              <span>Require League Password</span>
+            </label>
 
-          <label className="league-settings-field league-settings-field--full">
-            <span>League Description</span>
-            <textarea
-              rows={3}
-              value={form.description}
-              onChange={(e) => updateField('description', e.target.value)}
-              placeholder="Shown to players on the signup page"
-            />
-          </label>
+            <label className="league-settings-field league-settings-field--full">
+              <span>League Description</span>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) => updateField('description', e.target.value)}
+                placeholder="Shown to players on the signup page"
+              />
+            </label>
 
-          <label className="league-settings-check">
-            <input
-              type="checkbox"
-              checked={form.requires_password}
-              onChange={handleCheckbox('requires_password')}
-            />
-            <span>Require League Password</span>
-          </label>
+            <label className="league-settings-field league-settings-field--full">
+              <span>League Password</span>
+              <input
+                type="text"
+                value={form.password}
+                onChange={(e) => updateField('password', e.target.value)}
+                disabled={!form.requires_password}
+                placeholder="Optional when password gate is disabled"
+              />
+            </label>
+          </div>
+        </div>
 
-          <label className="league-settings-field">
-            <span>League Password</span>
-            <input
-              type="text"
-              value={form.password}
-              onChange={(e) => updateField('password', e.target.value)}
-              disabled={!form.requires_password}
-              placeholder="Optional when password gate is disabled"
-            />
-          </label>
+        <div className="league-settings-section">
+          <h3>2) Player Signup Requirements</h3>
+          <div className="league-settings-grid">
+            <label className="league-settings-check">
+              <input
+                type="checkbox"
+                checked={form.show_email}
+                onChange={handleCheckbox('show_email')}
+                disabled={form.require_email}
+              />
+              <span>Show Email Field</span>
+            </label>
 
-          <label className="league-settings-check">
-            <input
-              type="checkbox"
-              checked={form.show_email}
-              onChange={handleCheckbox('show_email')}
-              disabled={form.require_email}
-            />
-            <span>Show Email Field</span>
-          </label>
+            <label className="league-settings-check">
+              <input
+                type="checkbox"
+                checked={form.require_email}
+                onChange={handleCheckbox('require_email')}
+                disabled={!form.show_email}
+              />
+              <span>Require Email</span>
+            </label>
 
-          <label className="league-settings-check">
-            <input
-              type="checkbox"
-              checked={form.require_email}
-              onChange={handleCheckbox('require_email')}
-              disabled={!form.show_email}
-            />
-            <span>Require Email</span>
-          </label>
+            <label className="league-settings-check">
+              <input
+                type="checkbox"
+                checked={form.show_phone}
+                onChange={handleCheckbox('show_phone')}
+                disabled={form.require_phone}
+              />
+              <span>Show Phone Field</span>
+            </label>
 
-          <label className="league-settings-check">
-            <input
-              type="checkbox"
-              checked={form.show_phone}
-              onChange={handleCheckbox('show_phone')}
-              disabled={form.require_phone}
-            />
-            <span>Show Phone Field</span>
-          </label>
+            <label className="league-settings-check">
+              <input
+                type="checkbox"
+                checked={form.require_phone}
+                onChange={handleCheckbox('require_phone')}
+                disabled={!form.show_phone}
+              />
+              <span>Require Phone</span>
+            </label>
 
-          <label className="league-settings-check">
-            <input
-              type="checkbox"
-              checked={form.require_phone}
-              onChange={handleCheckbox('require_phone')}
-              disabled={!form.show_phone}
-            />
-            <span>Require Phone</span>
-          </label>
+            <label className="league-settings-check league-settings-field--full">
+              <input
+                type="checkbox"
+                checked={form.require_additional_player_info}
+                onChange={handleCheckbox('require_additional_player_info')}
+              />
+              <span>Require Additional Player Info</span>
+            </label>
+          </div>
+        </div>
 
-          <label className="league-settings-check">
-            <input
-              type="checkbox"
-              checked={form.require_additional_player_info}
-              onChange={handleCheckbox('require_additional_player_info')}
-            />
-            <span>Require Additional Player Info</span>
-          </label>
+        <div className="league-settings-section">
+          <h3>3) Hole and Group Settings</h3>
+          <div className="league-settings-grid">
+            <label className="league-settings-field">
+              <span>Default Open A Holes</span>
+              <input
+                type="number"
+                min={1}
+                max={MAX_HOLE_COUNT}
+                value={form.default_open_holes}
+                onChange={(e) => updateField('default_open_holes', e.target.value)}
+              />
+            </label>
 
-          <label className="league-settings-check">
-            <input
-              type="checkbox"
-              checked={form.allow_b_groups}
-              onChange={handleCheckbox('allow_b_groups')}
-            />
-            <span>Allow B Holes</span>
-          </label>
+            <label className="league-settings-check">
+              <input
+                type="checkbox"
+                checked={form.allow_b_groups}
+                onChange={handleCheckbox('allow_b_groups')}
+              />
+              <span>Allow B Holes</span>
+            </label>
 
-          <label className="league-settings-field league-settings-field--full">
-            <span>B Hole Unlock Sequence (comma-separated)</span>
-            <input
-              type="text"
-              value={form.b_hole_unlock_sequence}
-              onChange={(e) => updateField('b_hole_unlock_sequence', e.target.value)}
-              placeholder="Example: 5,1,3,2,4,6,7,8,9"
-            />
-            <small className="muted">Effective sequence: {normalizedSequencePreview}B</small>
-          </label>
+            <label className="league-settings-field league-settings-field--full">
+              <span>B Hole Unlock Sequence (comma-separated)</span>
+              <input
+                type="text"
+                value={form.b_hole_unlock_sequence}
+                onChange={(e) => updateField('b_hole_unlock_sequence', e.target.value)}
+                placeholder="Example: 5,1,3,2,4,6,7,8,9"
+              />
+              <small className="muted">Effective sequence: {normalizedSequencePreview}B</small>
+            </label>
+          </div>
         </div>
 
         <div className="league-settings-actions">
