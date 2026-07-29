@@ -287,30 +287,35 @@ export default function LeagueSettingsPanel({ onSaved }) {
             </div>
 
             <div className="league-settings-row league-settings-row--hole-group">
-              <p className="muted league-settings-subtitle league-settings-field--full">
-                B Group Settings
-              </p>
-              <label className="league-settings-check">
-                <input
-                  type="checkbox"
-                  checked={form.allow_b_groups}
-                  onChange={handleCheckbox('allow_b_groups')}
-                />
-                <span>Enable B Holes/Groups</span>
-              </label>
+              <div className="league-settings-bgroup-panel league-settings-field--full">
+                <div className="league-settings-bgroup-header">
+                  <p className="muted league-settings-subtitle league-settings-subtitle--title">
+                    B Group Settings
+                  </p>
+                  <label className="league-settings-check league-settings-check--inline">
+                    <input
+                      type="checkbox"
+                      checked={form.allow_b_groups}
+                      onChange={handleCheckbox('allow_b_groups')}
+                    />
+                    <span>Enable B Holes/Groups</span>
+                  </label>
+                </div>
 
-              <label className="league-settings-field league-settings-field--grow">
-                <span>B Hole/Group Unlock Sequence (comma-separated)</span>
-                <input
-                  type="text"
-                  value={form.b_hole_unlock_sequence}
-                  onChange={(e) => updateField('b_hole_unlock_sequence', e.target.value)}
-                  placeholder="Example: 5,1,3,2,4,6,7,8,9"
-                />
-                <small className="muted">
-                  Common setup: unlock B groups on par 5s first, then par 4s, then par 3s.
-                </small>
-              </label>
+                <label className={`league-settings-field league-settings-field--grow${!form.allow_b_groups ? ' league-settings-field--disabled' : ''}`}>
+                  <span>B Hole/Group Unlock Sequence (comma-separated)</span>
+                  <input
+                    type="text"
+                    value={form.b_hole_unlock_sequence}
+                    onChange={(e) => updateField('b_hole_unlock_sequence', e.target.value)}
+                    placeholder="Example: 5,1,3,2,4,6,7,8,9"
+                    disabled={!form.allow_b_groups}
+                  />
+                  <small className="muted">
+                    Common setup: unlock B groups on par 5s first, then par 4s, then par 3s.
+                  </small>
+                </label>
+              </div>
             </div>
           </div>
         </div>
