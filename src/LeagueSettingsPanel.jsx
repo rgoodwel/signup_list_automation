@@ -287,6 +287,9 @@ export default function LeagueSettingsPanel({ onSaved }) {
             </div>
 
             <div className="league-settings-row league-settings-row--hole-group">
+              <p className="muted league-settings-subtitle league-settings-field--full">
+                B Group Settings
+              </p>
               <label className="league-settings-check">
                 <input
                   type="checkbox"
@@ -304,6 +307,9 @@ export default function LeagueSettingsPanel({ onSaved }) {
                   onChange={(e) => updateField('b_hole_unlock_sequence', e.target.value)}
                   placeholder="Example: 5,1,3,2,4,6,7,8,9"
                 />
+                <small className="muted">
+                  Common setup: unlock B groups on par 5s first, then par 4s, then par 3s.
+                </small>
               </label>
             </div>
           </div>
