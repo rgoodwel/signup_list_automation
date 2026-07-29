@@ -175,6 +175,9 @@ export default function LeagueSettingsPanel({ onSaved }) {
                 onChange={(e) => updateField('description', e.target.value)}
                 placeholder="Shown to players on the signup page"
               />
+              <small className="muted">
+                Separate lines with a semicolon (;). Example: League starts at 5:30 PM; Please arrive 15 minutes early.
+              </small>
             </label>
 
             <label className="league-settings-check league-settings-field--full">
