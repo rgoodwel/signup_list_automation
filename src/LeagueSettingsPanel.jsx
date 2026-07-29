@@ -151,10 +151,6 @@ export default function LeagueSettingsPanel({ onSaved }) {
 
   return (
     <section className="panel">
-      <div className="panel-header">
-        <h2>League Settings</h2>
-      </div>
-
       <form onSubmit={handleSave} className="league-settings-form">
         <div className="league-settings-section">
           <h3>General League Setup</h3>

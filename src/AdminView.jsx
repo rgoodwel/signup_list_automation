@@ -155,9 +155,6 @@ export default function AdminView({ players, weeks, onRefresh }) {
             {t.label}
           </button>
         ))}
-        <button className="tab-btn tab-btn--logout" onClick={() => setAuthed(false)}>
-          Log out
-        </button>
       </div>
 
       {tab === 'settings' && <LeagueSettingsPanel onSaved={onRefresh} />}
