@@ -1122,7 +1122,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
           </div>
           {allowBGroups && !bUnlocked && week && bUnlockRemaining > 0 && (
             <p className="b-group-notice">
-              Group B hole 1 unlocks when {bUnlockRemaining} more default hole{bUnlockRemaining !== 1 ? 's' : ''} have at least one signup.
+              Group B holes begin to unlock when {bUnlockRemaining} more hole{bUnlockRemaining !== 1 ? 's' : ''} have a player assigned to them.
             </p>
           )}
           {bUnlocked && (
