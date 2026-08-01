@@ -93,6 +93,11 @@ function normalizeName(n) {
   return (n || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+function normalizeOptionalEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase()
+  return normalized || null
+}
+
 export function isFullName(name) {
   return (name || '').trim().split(/\s+/).filter(Boolean).length >= 2
 }
@@ -665,24 +670,26 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
     return { ok: false, reason: 'Please enter your first and last name (e.g., "Jane Smith").' }
   }
 
-  const emailKey = email.trim().toLowerCase()
+  const emailKey = normalizeOptionalEmail(email)
 
   try {
-    const { data: existing, error: existError } = await supabase
-      .from('weekly_players')
-      .select('id')
-      .eq('league_id', currentLeagueId)
-      .eq('week_number', weekKey)
-      .eq('player_email', emailKey)
-      .single()
-    
-    // .single() returns PGRST116 error when no rows found (expected for new signups)
-    if (existError && existError.code !== 'PGRST116') {
-      throw existError
-    }
-    
-    if (existing) {
-      return { ok: false, reason: "You're already signed up for this week!" }
+    if (emailKey) {
+      const { data: existing, error: existError } = await supabase
+        .from('weekly_players')
+        .select('id')
+        .eq('league_id', currentLeagueId)
+        .eq('week_number', weekKey)
+        .eq('player_email', emailKey)
+        .single()
+      
+      // .single() returns PGRST116 error when no rows found (expected for new signups)
+      if (existError && existError.code !== 'PGRST116') {
+        throw existError
+      }
+      
+      if (existing) {
+        return { ok: false, reason: "You're already signed up for this week!" }
+      }
     }
 
     let week = await getWeek(weekKey)
@@ -904,6 +911,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
 
     for (let i = 0; i < extras.length; i++) {
       const guest = extras[i]
+      const guestEmailKey = normalizeOptionalEmail(guest.email)
       console.log(`DEBUG: Inserting guest ${i + 1}/${extras.length}:`, guest.name)
       
       const { error: guestError } = await supabase
@@ -912,7 +920,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
           league_id: currentLeagueId,
           week_number: weekKey,
           player_name: guest.name.trim(),
-          player_email: guest.email.trim().toLowerCase(),
+          player_email: guestEmailKey,
           player_phone: guest.phone ? guest.phone.replace(/\D/g, '') : null,
           hole_number: holeNumber,
           hole_group: holeGroup,
@@ -925,7 +933,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       }
       
       // Log the signup
-      await logAuditEvent(weekKey, 'CREATE', guest.name.trim(), guest.email.trim().toLowerCase(), holeNumber, holeGroup, {
+      await logAuditEvent(weekKey, 'CREATE', guest.name.trim(), guestEmailKey, holeNumber, holeGroup, {
         type: 'player',
         groupInitiator: emailKey,
       })
