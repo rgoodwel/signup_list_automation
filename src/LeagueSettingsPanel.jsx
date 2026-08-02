@@ -27,6 +27,7 @@ export default function LeagueSettingsPanel({ onSaved }) {
   const [messageType, setMessageType] = useState('success')
 
   const [form, setForm] = useState({
+    is_public: true,
     day_of_week: 'Monday',
     description: '',
     requires_password: false,
@@ -48,6 +49,7 @@ export default function LeagueSettingsPanel({ onSaved }) {
     const showPhone = requirePhone ? true : toBoolean(league?.show_phone, true)
 
     setForm({
+      is_public: toBoolean(league?.is_public, true),
       day_of_week: league?.day_of_week || 'Monday',
       description: league?.description || '',
       requires_password: toBoolean(league?.requires_password, false),
@@ -103,6 +105,7 @@ export default function LeagueSettingsPanel({ onSaved }) {
     const showPhone = requirePhone ? true : !!form.show_phone
 
     const payload = {
+      is_public: !!form.is_public,
       day_of_week: DAY_OPTIONS.includes(form.day_of_week) ? form.day_of_week : 'Monday',
       description: form.description?.trim() || null,
       requires_password: !!form.requires_password,
@@ -155,6 +158,20 @@ export default function LeagueSettingsPanel({ onSaved }) {
         <div className="league-settings-section">
           <h3>General League Setup</h3>
           <div className="league-settings-grid">
+            <label className="league-settings-field">
+              <span>League Visibility</span>
+              <select
+                value={form.is_public ? 'public' : 'private'}
+                onChange={(e) => updateField('is_public', e.target.value === 'public')}
+              >
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+              <small className="muted">
+                Public leagues appear on the main page. Private leagues are hidden.
+              </small>
+            </label>
+
             <label className="league-settings-field">
               <span>League Day</span>
               <select

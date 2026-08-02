@@ -14,6 +14,9 @@ ALTER TABLE leagues ADD COLUMN IF NOT EXISTS day_of_week TEXT DEFAULT 'Monday';
 ALTER TABLE leagues ADD COLUMN IF NOT EXISTS description TEXT;
 -- Optional league description displayed to players
 
+ALTER TABLE leagues ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT TRUE;
+-- If true, league appears on the main app page selector
+
 ALTER TABLE leagues ADD COLUMN IF NOT EXISTS requires_password BOOLEAN DEFAULT FALSE;
 -- If true, players must enter a password to view league/signup
 
@@ -41,3 +44,4 @@ ALTER TABLE leagues ADD COLUMN IF NOT EXISTS b_hole_unlock_sequence TEXT;
 
 -- Update existing leagues to have sensible defaults if they were created before this migration
 UPDATE leagues SET day_of_week = 'Monday' WHERE day_of_week IS NULL;
+UPDATE leagues SET is_public = TRUE WHERE is_public IS NULL;

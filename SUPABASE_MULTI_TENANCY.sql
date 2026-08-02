@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS leagues (
   slug TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   owner_email TEXT NOT NULL,
+  is_public BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

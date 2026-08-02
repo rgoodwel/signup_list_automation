@@ -1254,7 +1254,7 @@ export async function getLeagueSettings(leagueId) {
   try {
     const { data, error } = await supabase
       .from('leagues')
-      .select('day_of_week, description, requires_password, password, require_email, require_phone, require_additional_player_info, default_open_holes, allow_b_groups, b_hole_unlock_sequence')
+      .select('is_public, day_of_week, description, requires_password, password, require_email, require_phone, require_additional_player_info, default_open_holes, allow_b_groups, b_hole_unlock_sequence')
       .eq('id', leagueId)
       .single()
 
@@ -1262,6 +1262,7 @@ export async function getLeagueSettings(leagueId) {
 
     return {
       dayOfWeek: data?.day_of_week || 'Monday',
+      isPublic: data?.is_public !== false,
       description: data?.description,
       requiresPassword: data?.requires_password || false,
       password: data?.password,
@@ -1279,6 +1280,7 @@ export async function getLeagueSettings(leagueId) {
     // Return defaults if settings cannot be fetched
     return {
       dayOfWeek: 'Monday',
+      isPublic: true,
       description: null,
       requiresPassword: false,
       password: null,
