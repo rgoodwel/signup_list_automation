@@ -796,7 +796,7 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
 
     let holeKey = null
     const requestedHole = String(hole || '').trim().toUpperCase()
-    const autoRequested = requestedHole === 'AUTO' || requestedHole === ''
+    const autoRequested = requestedHole === 'AUTO'
 
     if (autoRequested) {
       const groupSize = 1 + extras.length
