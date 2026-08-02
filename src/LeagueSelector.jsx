@@ -105,7 +105,7 @@ export default function LeagueSelector() {
           <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '14px 16px', background: '#fff' }}>
             <div className="muted" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '.04em' }}>Total Leagues</div>
             <div style={{ fontSize: '28px', fontWeight: 700, lineHeight: 1.2 }}>{stats.leagueCount}</div>
-            <div className="muted" style={{ fontSize: '12px' }}>Excludes Test League</div>
+            <div className="muted" style={{ fontSize: '12px' }}>Public and Private Leagues</div>
           </div>
           <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '14px 16px', background: '#fff' }}>
             <div className="muted" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '.04em' }}>Total Players Signed Up</div>
@@ -115,6 +115,9 @@ export default function LeagueSelector() {
         </div>
       </header>
       <main style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '24px' }}>
+        <p className="muted" style={{ gridColumn: '1 / -1', margin: 0 }}>
+          Public Leagues
+        </p>
         {leagues.map(league => (
           <button
             key={league.id}
