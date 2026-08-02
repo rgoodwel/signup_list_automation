@@ -198,7 +198,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [isPlayerRecognized, setIsPlayerRecognized] = useState(false) // Track if player selected from database
-  const [hole, setHole] = useState('AUTO')
+  const [hole, setHole] = useState('')
   const [additionalPlayers, setAdditionalPlayers] = useState([
     { name: '', email: '', phone: '' },
     { name: '', email: '', phone: '' },
@@ -591,7 +591,7 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
       setName('')
       setEmail('')
       setPhone('')
-      setHole('AUTO')
+      setHole('')
       setAdditionalPlayers([
         { name: '', email: '', phone: '' },
         { name: '', email: '', phone: '' },
@@ -1035,8 +1035,8 @@ export default function SignupForm({ players, weekKey: propWeekKey, week: propWe
               onChange={e => { setHole(e.target.value); setMsg(null) }}
               required
             >
-              <option value="AUTO">
-                Automatic Smart Hole Assignment
+              <option value="" disabled>
+                Choose a hole
               </option>
               {/* Group A holes with available spots */}
               {holeKeys.some(k => canFitGroup(k)) && (
