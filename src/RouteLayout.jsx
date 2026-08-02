@@ -14,7 +14,7 @@ export default function RouteLayout() {
     try {
       const { data, error: err } = await supabase
         .from('leagues')
-        .select('id, slug, name, owner_email, day_of_week, description, requires_password, password, require_email, require_phone, show_email, show_phone, require_additional_player_info, default_open_holes, allow_b_groups, b_hole_unlock_sequence')
+        .select('id, slug, name, owner_email, is_public, day_of_week, description, requires_password, password, require_email, require_phone, show_email, show_phone, require_additional_player_info, default_open_holes, allow_b_groups, b_hole_unlock_sequence')
         .eq('slug', leagueSlug)
         .single()
 

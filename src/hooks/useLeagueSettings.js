@@ -14,6 +14,7 @@ export function useLeagueSettings() {
     name: league?.name,
     slug: league?.slug,
     ownerEmail: league?.owner_email,
+    isPublic: league?.is_public !== false,
     
     // Settings
     dayOfWeek: league?.day_of_week || 'Monday',

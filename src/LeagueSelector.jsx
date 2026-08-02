@@ -12,7 +12,8 @@ export default function LeagueSelector() {
       try {
         const { data, error } = await supabase
           .from('leagues')
-          .select('id, slug, name, requires_password')
+          .select('id, slug, name, requires_password, is_public')
+          .eq('is_public', true)
           .order('name')
         
         if (error) throw error
@@ -84,7 +85,7 @@ export default function LeagueSelector() {
           >
             <div>{league.name}</div>
             <div style={{ fontSize: '12px', fontWeight: 400, marginTop: '8px', opacity: 0.7 }}>
-              {league.requires_password ? 'Private' : 'Public'}
+              {league.requires_password ? 'Password Protected' : 'Open Signup'}
             </div>
           </button>
         ))}
