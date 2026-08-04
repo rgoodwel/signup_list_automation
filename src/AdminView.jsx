@@ -102,12 +102,12 @@ function PinLogin({ onSuccess }) {
 // ── Admin tabs ────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'settings', label: 'League Settings' },
   { key: 'week',    label: 'Current Week' },
   { key: 'logs',    label: 'Logs' },
   { key: 'history', label: 'Player History' },
   { key: 'trend',   label: 'Trends' },
   { key: 'export',  label: 'Export' },
+  { key: 'settings', label: 'League Settings' },
 ]
 
 export default function AdminView({ players, weeks, onRefresh }) {
