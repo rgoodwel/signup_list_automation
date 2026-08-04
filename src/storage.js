@@ -1257,6 +1257,73 @@ export function computePlayerStats(player, allWeekKeys, participation = {}) {
   }
 }
 
+/**
+ * Builds player history rows directly from signup records so guest players
+ * (including no-email rows) are included in admin history reporting.
+ */
+export async function getPlayerHistoryRows(allWeekKeys = []) {
+  try {
+    if (!currentLeagueId) return []
+
+    const { data, error } = await supabase
+      .from('weekly_players')
+      .select('player_name, player_email, week_number')
+      .eq('league_id', currentLeagueId)
+
+    if (error) throw error
+
+    const participants = new Map()
+    for (const row of (data || [])) {
+      const name = (row.player_name || '').trim()
+      const email = row.player_email?.trim().toLowerCase() || null
+      const week = row.week_number
+      if (!name || !week) continue
+
+      const identityKey = email || `guest:${normalizeName(name)}`
+      if (!participants.has(identityKey)) {
+        participants.set(identityKey, {
+          id: identityKey,
+          name,
+          email: email || '(Guest - no email)',
+          weeks: new Set(),
+        })
+      }
+
+      participants.get(identityKey).weeks.add(week)
+    }
+
+    const sortedAllWeeks = [...allWeekKeys].sort((a, b) => compareWeekKeys(a, b))
+
+    return Array.from(participants.values()).map(player => {
+      const playerWeeks = Array.from(player.weeks).sort((a, b) => compareWeekKeys(a, b))
+      const firstWeekKey = playerWeeks[0] || null
+      const lastWeekKey = playerWeeks[playerWeeks.length - 1] || null
+
+      let currentStreak = 0
+      for (let i = sortedAllWeeks.length - 1; i >= 0; i--) {
+        if (player.weeks.has(sortedAllWeeks[i])) {
+          currentStreak++
+        } else {
+          break
+        }
+      }
+
+      return {
+        id: player.id,
+        name: player.name,
+        email: player.email,
+        firstWeekKey,
+        lastWeekKey,
+        totalWeeks: playerWeeks.length,
+        currentStreak,
+      }
+    })
+  } catch (err) {
+    console.error('Error building player history rows:', err)
+    return []
+  }
+}
+
 // ── League Settings (Read-only access to settings, write should go through Supabase UI) ──
 /**
  * Fetch league settings from database
