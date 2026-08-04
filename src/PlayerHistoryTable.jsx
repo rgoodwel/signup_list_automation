@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { weekKeyToLabel, computePlayerStats, getPlayerParticipation } from './storage'
+import { weekKeyToLabel, getPlayerHistoryRows } from './storage'
 
 const COLUMNS = [
   { key: 'name',          label: 'Name' },
@@ -19,24 +19,17 @@ export default function PlayerHistoryTable({ players, weeks }) {
   const [filter, setFilter]     = useState('')
   const [sortCol, setSortCol]   = useState('name')
   const [sortDir, setSortDir]   = useState('asc')
-  const [participation, setParticipation] = useState({})
+  const [rows, setRows] = useState([])
 
   const allWeekKeys = useMemo(() => Object.keys(weeks), [weeks])
 
-  // Fetch player participation data on mount
+  // Build history rows from weekly signup records so guest players are included.
   useEffect(() => {
     ;(async () => {
-      const data = await getPlayerParticipation()
-      setParticipation(data)
+      const data = await getPlayerHistoryRows(allWeekKeys)
+      setRows(data)
     })()
-  }, [])
-
-  const rows = useMemo(() => {
-    return Object.values(players).map(p => {
-      const stats = computePlayerStats(p, allWeekKeys, participation)
-      return { ...p, ...stats }
-    })
-  }, [players, allWeekKeys, participation])
+  }, [allWeekKeys])
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -100,7 +93,7 @@ export default function PlayerHistoryTable({ players, weeks }) {
             </thead>
             <tbody>
               {sorted.map(r => (
-                <tr key={r.email}>
+                <tr key={r.id}>
                   <td>{r.name}</td>
                   <td>{r.email}</td>
                   <td>{r.firstWeekKey ? weekKeyToLabel(r.firstWeekKey) : '-'}</td>

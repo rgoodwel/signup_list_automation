@@ -102,18 +102,18 @@ function PinLogin({ onSuccess }) {
 // ── Admin tabs ────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'settings', label: 'League Settings' },
   { key: 'week',    label: 'Current Week' },
   { key: 'logs',    label: 'Logs' },
   { key: 'history', label: 'Player History' },
   { key: 'trend',   label: 'Trends' },
   { key: 'export',  label: 'Export' },
+  { key: 'settings', label: 'League Settings' },
 ]
 
 export default function AdminView({ players, weeks, onRefresh }) {
   const [savedPin, setSavedPin] = useState(null)
   const [authed, setAuthed]   = useState(false)
-  const [tab, setTab]         = useState('settings')
+  const [tab, setTab]         = useState('week')
   const [loading, setLoading] = useState(true)
 
   // Load admin PIN on mount

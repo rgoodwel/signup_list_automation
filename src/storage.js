@@ -671,12 +671,17 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
   }
 
   const emailKey = normalizeOptionalEmail(email)
+  const extras = additionalPlayers
+    .filter(p => p && p.name && p.name.trim())
+    .slice(0, 3)
 
   try {
+    let existingPrimarySignup = null
+
     if (emailKey) {
       const { data: existing, error: existError } = await supabase
         .from('weekly_players')
-        .select('id')
+        .select('id, hole_number, hole_group, signup_id')
         .eq('league_id', currentLeagueId)
         .eq('week_number', weekKey)
         .eq('player_email', emailKey)
@@ -688,7 +693,10 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
       }
       
       if (existing) {
-        return { ok: false, reason: "You're already signed up for this week!" }
+        if (extras.length === 0) {
+          return { ok: false, reason: "You're already signed up for this week!" }
+        }
+        existingPrimarySignup = existing
       }
     }
 
@@ -716,10 +724,6 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         return { ok: false, reason: 'Week record could not be created. Please contact an administrator.' }
       }
     }
-
-    const extras = additionalPlayers
-      .filter(p => p && p.name && p.name.trim())
-      .slice(0, 3)
 
     const { openHoleCount, allowBGroups, bHoleUnlockSequence } = getLeagueSignupConfig(leagueSettings)
     const nonEmptyAGroupHoles = allowBGroups ? await countNonEmptyAGroupHoles(weekKey, openHoleCount) : 0
@@ -795,10 +799,15 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
     }
 
     let holeKey = null
-    const requestedHole = String(hole || '').trim().toUpperCase()
-    const autoRequested = requestedHole === 'AUTO'
+    if (existingPrimarySignup) {
+      const existingHoleNumber = String(existingPrimarySignup.hole_number || '')
+      const existingHoleGroup = existingPrimarySignup.hole_group === 'B' ? 'B' : 'A'
+      holeKey = existingHoleGroup === 'B' ? `${existingHoleNumber}B` : existingHoleNumber
+    } else {
+      const requestedHole = String(hole || '').trim().toUpperCase()
+      const autoRequested = requestedHole === 'AUTO'
 
-    if (autoRequested) {
+      if (autoRequested) {
       const groupSize = 1 + extras.length
       let bestHole = null
       let bestCapacity = -1
@@ -835,32 +844,33 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
         }
       }
       
-      holeKey = bestHole
-    } else {
-      holeKey = normalizeHole(hole)
-      if (!holeKey) {
-        return { ok: false, reason: 'Please choose a valid hole.' }
-      }
-
-      const requestedHoleNumber = parseInt(holeKey.replace(/B$/, ''), 10)
-      if (requestedHoleNumber > openHoleCount) {
-        return {
-          ok: false,
-          reason: `Hole ${requestedHoleNumber} is not open for signup yet.`,
+        holeKey = bestHole
+      } else {
+        holeKey = normalizeHole(hole)
+        if (!holeKey) {
+          return { ok: false, reason: 'Please choose a valid hole.' }
         }
-      }
 
-      if (holeKey.endsWith('B') && !allowBGroups) {
-        return {
-          ok: false,
-          reason: 'Group B holes are not available for this league.',
+        const requestedHoleNumber = parseInt(holeKey.replace(/B$/, ''), 10)
+        if (requestedHoleNumber > openHoleCount) {
+          return {
+            ok: false,
+            reason: `Hole ${requestedHoleNumber} is not open for signup yet.`,
+          }
         }
-      }
 
-      if (holeKey.endsWith('B') && !unlockedBHoleNumbers.includes(requestedHoleNumber)) {
-        return {
-          ok: false,
-          reason: `Group B hole ${requestedHoleNumber} is not yet available.`,
+        if (holeKey.endsWith('B') && !allowBGroups) {
+          return {
+            ok: false,
+            reason: 'Group B holes are not available for this league.',
+          }
+        }
+
+        if (holeKey.endsWith('B') && !unlockedBHoleNumbers.includes(requestedHoleNumber)) {
+          return {
+            ok: false,
+            reason: `Group B hole ${requestedHoleNumber} is not yet available.`,
+          }
         }
       }
     }
@@ -869,45 +879,47 @@ export async function addSignupToWeek({ name, email, phone, hole, additionalPlay
     const holeNumber = holeKey.replace(/B$/, '')
     
     const holePlayers = await getHolePlayers(weekKey, holeNumber, holeGroup)
-    const groupSize = 1 + extras.length
-    if (holePlayers.length + groupSize > HOLE_CAPACITY) {
+    const playersToAddCount = existingPrimarySignup ? extras.length : (1 + extras.length)
+    if (holePlayers.length + playersToAddCount > HOLE_CAPACITY) {
       return {
         ok: false,
-        reason: `Hole ${holeKey} does not have enough space for ${groupSize} player(s).`,
+        reason: `Hole ${holeKey} does not have enough space for ${playersToAddCount} player(s).`,
       }
     }
 
-    const signupId = createId()
+    const signupId = existingPrimarySignup?.signup_id || createId()
 
-    console.log('DEBUG: Inserting primary player', {
-      weekKey, name: name.trim(), email: emailKey, holeNumber, holeGroup, signupId
-    })
-
-    const { error: insertError } = await supabase
-      .from('weekly_players')
-      .insert({
-        league_id: currentLeagueId,
-        week_number: weekKey,
-        player_name: name.trim(),
-        player_email: emailKey,
-        player_phone: phone ? phone.replace(/\D/g, '') : null,
-        hole_number: holeNumber,
-        hole_group: holeGroup,
-        signup_id: signupId,
+    if (!existingPrimarySignup) {
+      console.log('DEBUG: Inserting primary player', {
+        weekKey, name: name.trim(), email: emailKey, holeNumber, holeGroup, signupId
       })
-    
-    if (insertError) {
-      console.error('DEBUG: Primary player insert failed:', insertError)
-      throw insertError
+
+      const { error: insertError } = await supabase
+        .from('weekly_players')
+        .insert({
+          league_id: currentLeagueId,
+          week_number: weekKey,
+          player_name: name.trim(),
+          player_email: emailKey,
+          player_phone: phone ? phone.replace(/\D/g, '') : null,
+          hole_number: holeNumber,
+          hole_group: holeGroup,
+          signup_id: signupId,
+        })
+      
+      if (insertError) {
+        console.error('DEBUG: Primary player insert failed:', insertError)
+        throw insertError
+      }
+
+      // Log the primary player signup
+      await logAuditEvent(weekKey, 'CREATE', name.trim(), emailKey, holeNumber, holeGroup, {
+        type: 'primary',
+        groupSize: 1 + extras.length,
+      })
+
+      console.log('DEBUG: Primary player inserted, extras count:', extras.length)
     }
-
-    // Log the primary player signup
-    await logAuditEvent(weekKey, 'CREATE', name.trim(), emailKey, holeNumber, holeGroup, {
-      type: 'primary',
-      groupSize: 1 + extras.length,
-    })
-
-    console.log('DEBUG: Primary player inserted, extras count:', extras.length)
 
     for (let i = 0; i < extras.length; i++) {
       const guest = extras[i]
@@ -1242,6 +1254,96 @@ export function computePlayerStats(player, allWeekKeys, participation = {}) {
     lastWeekKey,
     totalWeeks,
     currentStreak,
+  }
+}
+
+/**
+ * Builds player history rows directly from signup records so guest players
+ * (including no-email rows) are included in admin history reporting.
+ */
+export async function getPlayerHistoryRows(allWeekKeys = []) {
+  try {
+    if (!currentLeagueId) return []
+
+    const { data, error } = await supabase
+      .from('weekly_players')
+      .select('player_name, player_email, week_number')
+      .eq('league_id', currentLeagueId)
+
+    if (error) throw error
+
+    const nameToEmails = new Map()
+    for (const row of (data || [])) {
+      const normalizedName = normalizeName(row.player_name)
+      const email = row.player_email?.trim().toLowerCase() || null
+      if (!normalizedName || !email) continue
+      if (!nameToEmails.has(normalizedName)) {
+        nameToEmails.set(normalizedName, new Set())
+      }
+      nameToEmails.get(normalizedName).add(email)
+    }
+
+    const participants = new Map()
+    for (const row of (data || [])) {
+      const name = (row.player_name || '').trim()
+      const email = row.player_email?.trim().toLowerCase() || null
+      const normalizedName = normalizeName(name)
+      const week = row.week_number
+      if (!name || !week) continue
+
+      const emailsForName = nameToEmails.get(normalizedName)
+      const canonicalEmail = !email && emailsForName && emailsForName.size === 1
+        ? Array.from(emailsForName)[0]
+        : null
+      const resolvedEmail = email || canonicalEmail
+      const identityKey = resolvedEmail || `guest:${normalizedName}`
+
+      if (!participants.has(identityKey)) {
+        participants.set(identityKey, {
+          id: identityKey,
+          name,
+          email: resolvedEmail || '(Guest - no email)',
+          weeks: new Set(),
+        })
+      }
+
+      const participant = participants.get(identityKey)
+      if (participant.email === '(Guest - no email)' && resolvedEmail) {
+        participant.email = resolvedEmail
+      }
+
+      participant.weeks.add(week)
+    }
+
+    const sortedAllWeeks = [...allWeekKeys].sort((a, b) => compareWeekKeys(a, b))
+
+    return Array.from(participants.values()).map(player => {
+      const playerWeeks = Array.from(player.weeks).sort((a, b) => compareWeekKeys(a, b))
+      const firstWeekKey = playerWeeks[0] || null
+      const lastWeekKey = playerWeeks[playerWeeks.length - 1] || null
+
+      let currentStreak = 0
+      for (let i = sortedAllWeeks.length - 1; i >= 0; i--) {
+        if (player.weeks.has(sortedAllWeeks[i])) {
+          currentStreak++
+        } else {
+          break
+        }
+      }
+
+      return {
+        id: player.id,
+        name: player.name,
+        email: player.email,
+        firstWeekKey,
+        lastWeekKey,
+        totalWeeks: playerWeeks.length,
+        currentStreak,
+      }
+    })
+  } catch (err) {
+    console.error('Error building player history rows:', err)
+    return []
   }
 }
 
