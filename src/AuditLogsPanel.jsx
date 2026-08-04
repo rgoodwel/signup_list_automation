@@ -4,6 +4,7 @@ import {
   getAuditLogs,
   weekKeyToLabel,
 } from './storage'
+import { formatTimestampEastern } from './utils/dateTime'
 
 export default function AuditLogsPanel() {
   const [logs, setLogs] = useState([])
@@ -132,7 +133,7 @@ export default function AuditLogsPanel() {
                       )}
                     </td>
                     <td style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                      {new Date(log.created_at).toLocaleString()}
+                      {formatTimestampEastern(log.created_at)}
                     </td>
                   </tr>
                 ))}

@@ -12,6 +12,7 @@ import {
   compareWeekKeys,
 } from './storage'
 import { supabase } from './utils/supabaseClient'
+import { formatTimestampEastern } from './utils/dateTime'
 
 export default function CurrentWeekPanel({ onRefresh }) {
   const league = useLeague()
@@ -185,7 +186,7 @@ export default function CurrentWeekPanel({ onRefresh }) {
                       <td>{p.player_name}</td>
                       <td>{p.player_email || '(guest)'}</td>
                       <td>{p.hole_number}{p.hole_group === 'B' ? 'B' : ''}</td>
-                      <td>{new Date(p.signed_up_at).toLocaleString()}</td>
+                      <td>{formatTimestampEastern(p.signed_up_at)}</td>
                     </tr>
                   ))}
                 </tbody>
