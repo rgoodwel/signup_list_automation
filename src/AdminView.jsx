@@ -113,7 +113,7 @@ const TABS = [
 export default function AdminView({ players, weeks, onRefresh }) {
   const [savedPin, setSavedPin] = useState(null)
   const [authed, setAuthed]   = useState(false)
-  const [tab, setTab]         = useState('settings')
+  const [tab, setTab]         = useState('week')
   const [loading, setLoading] = useState(true)
 
   // Load admin PIN on mount
