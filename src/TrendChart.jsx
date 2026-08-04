@@ -6,6 +6,10 @@ import { weekKeyToLabel, compareWeekKeys } from './storage'
 import { supabase } from './utils/supabaseClient'
 import { useLeague } from './contexts/LeagueContext'
 
+function normalizeName(value) {
+  return (value || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 export default function TrendChart({ weeks, players }) {
   const league = useLeague()
   const totalWeeks   = Object.keys(weeks).filter(k => k !== 'legacy').length
@@ -31,21 +35,46 @@ export default function TrendChart({ weeks, players }) {
         // Fetch all signups for these weeks (filtered by current league)
         const { data, error } = await supabase
           .from('weekly_players')
-          .select('week_number, id, signup_id')
+          .select('week_number, id, signup_id, player_name, player_email')
           .eq('league_id', league.id)
           .in('week_number', weekKeys)
           .order('id', { ascending: true })
 
         if (error) throw error
 
+        const nameToEmails = new Map()
+        for (const record of (data || [])) {
+          const normalizedName = normalizeName(record.player_name)
+          const email = record.player_email?.trim().toLowerCase() || null
+          if (!normalizedName || !email) continue
+          if (!nameToEmails.has(normalizedName)) {
+            nameToEmails.set(normalizedName, new Set())
+          }
+          nameToEmails.get(normalizedName).add(email)
+        }
+
         // Count primary vs guest signups by week.
         // A signup group is identified by signup_id; the first row in each group is primary,
         // remaining rows in that group are treated as guests.
         const counts = {}
         const seenSignupGroups = new Set()
+        const uniquePeople = new Set()
 
         for (const record of (data || [])) {
           const weekKey = record.week_number
+          const normalizedName = normalizeName(record.player_name)
+          const email = record.player_email?.trim().toLowerCase() || null
+          const emailsForName = nameToEmails.get(normalizedName)
+          const canonicalEmail = !email && emailsForName && emailsForName.size === 1
+            ? Array.from(emailsForName)[0]
+            : null
+          const resolvedEmail = email || canonicalEmail
+          const identityKey = resolvedEmail || `guest:${normalizedName}`
+
+          if (identityKey !== 'guest:') {
+            uniquePeople.add(identityKey)
+          }
+
           if (!counts[weekKey]) {
             counts[weekKey] = { primary: 0, guests: 0, total: 0 }
           }
@@ -74,6 +103,8 @@ export default function TrendChart({ weeks, players }) {
           acc.totalGuests += weekCounts.guests || 0
           return acc
         }, { totalPlayers: 0, totalPrimaryPlayers: 0, totalGuests: 0 })
+
+        totals.totalPlayers = uniquePeople.size
 
         setKpis(totals)
       } catch (err) {

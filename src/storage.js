@@ -1272,24 +1272,47 @@ export async function getPlayerHistoryRows(allWeekKeys = []) {
 
     if (error) throw error
 
+    const nameToEmails = new Map()
+    for (const row of (data || [])) {
+      const normalizedName = normalizeName(row.player_name)
+      const email = row.player_email?.trim().toLowerCase() || null
+      if (!normalizedName || !email) continue
+      if (!nameToEmails.has(normalizedName)) {
+        nameToEmails.set(normalizedName, new Set())
+      }
+      nameToEmails.get(normalizedName).add(email)
+    }
+
     const participants = new Map()
     for (const row of (data || [])) {
       const name = (row.player_name || '').trim()
       const email = row.player_email?.trim().toLowerCase() || null
+      const normalizedName = normalizeName(name)
       const week = row.week_number
       if (!name || !week) continue
 
-      const identityKey = email || `guest:${normalizeName(name)}`
+      const emailsForName = nameToEmails.get(normalizedName)
+      const canonicalEmail = !email && emailsForName && emailsForName.size === 1
+        ? Array.from(emailsForName)[0]
+        : null
+      const resolvedEmail = email || canonicalEmail
+      const identityKey = resolvedEmail || `guest:${normalizedName}`
+
       if (!participants.has(identityKey)) {
         participants.set(identityKey, {
           id: identityKey,
           name,
-          email: email || '(Guest - no email)',
+          email: resolvedEmail || '(Guest - no email)',
           weeks: new Set(),
         })
       }
 
-      participants.get(identityKey).weeks.add(week)
+      const participant = participants.get(identityKey)
+      if (participant.email === '(Guest - no email)' && resolvedEmail) {
+        participant.email = resolvedEmail
+      }
+
+      participant.weeks.add(week)
     }
 
     const sortedAllWeeks = [...allWeekKeys].sort((a, b) => compareWeekKeys(a, b))
